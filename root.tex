@@ -36,6 +36,38 @@
   /Keywords (Robots;Overlords)
 }
 
+
+\newcommand{\SE}{\text{SE}}
+\newcommand{\SO}{\text{SO}}
+\newcommand{\real}{\mathbb{R}}
+
+
+\newcommand{\scene}{\mathcal{X}}
+\newcommand{\inventory}{\mathcal{I}}
+\newcommand{\placed}{\mathcal{P}}
+\newcommand{\target}{T}
+\newcommand{\object}{O}
+\newcommand{\convex}{C}
+\newcommand{\dsf}{h}
+
+\newcommand{\state}{s}
+\newcommand{\action}{a}
+\newcommand{\reward}{r}
+\newcommand{\transition}{p}
+\newcommand{\mdp}{\mathcal{M}}
+
+\newcommand{\Vol}{\operatorname{Vol}}
+\newcommand{\sd}{\operatorname{sd}}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\newcommand{\initpose}{\texttt{InitialPoseSampling}}
+\newcommand{\poseopt}{\texttt{PoseOptimization}}
+\newcommand{\simul}{\texttt{PhysicalSimulation}}
+\newcommand{\mcts}{\texttt{MCTS}}
+
+
+
 \begin{document}
 
 % paper title
@@ -87,18 +119,22 @@
 \maketitle
 
 \begin{abstract}
+This paper presents a novel approach for automated stacking of irregularly shaped objects. The proposed method combines Monte Carlo Tree Search (MCTS) with optimization techniques to achieve stable and efficient stacking configurations.
 
 \end{abstract}
 
 \IEEEpeerreviewmaketitle
  
 \input{sections/01_introduction.tex}
-\input{sections/02_related_works.tex}
-\input{sections/03_problem_formulation.tex}
-\input{sections/04_sequence_planning.tex}
-\input{sections/05_evaluations.tex}
-\input{sections/06_experiments.tex}
-\input{sections/07_conclusion.tex}
+
+\clearpage
+\input{sections/02_preliminaries.tex}
+\input{sections/03_overview.tex}
+\input{sections/04_pose_optimization.tex}
+\input{sections/05_sequence_planning.tex}
+\input{sections/06_evaluations.tex}
+\input{sections/07_experiments.tex}
+\input{sections/08_conclusion.tex}
 
 % \section{Introduction}
 % This demo file is intended to serve as a ``starter file" for the
