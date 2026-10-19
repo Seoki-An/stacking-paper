@@ -22,26 +22,6 @@ c_\text{phys}(\object_1(q_1),\cdots,\object_n(q_n)) = 0 \nonumber
 \end{gather}
 where $\Vol(\cdot)$ is the volume of a 3D shape and $c_\text{phys}(\cdot)$ is a function that evaluates the physical feasibility of the configuration, including stability and non-collision constraints.
 
-\subsection{Markov Decision Process Formulation}
-
-Nevertheless, solving the optimization problem in Eq. \eqref{eq:problem_definition} is extremely challenging due to the high-dimensional search space as the number of the objects $n$ increases.
-In addition, the physical constraints involve complex contact dynamics which makes the problem even more difficult to solve.
-
-To address the problem Eq. \eqref{eq:problem_definition} in a tractable manner, we model the problem as a sequential decision-making process where we place one object at a time.
-Suppose that we have already placed $k$ objects in the scene and denote the set of indices of the placed objects as $\placed_k \subset \{1,\cdots,n\}$.
-Then, the $k$-th scene $\scene_k:=\{(i,q_i)\mid i \in \placed_k \}$ is the collection of object indices and their corresponding placement poses that have been placed in the scene.
-Also, let the $k$-th inventory $\inventory_k := \{1,\cdots, n\} \backslash \placed_k$ be the set of remaining object indices that have not been placed yet.
-Given $(\scene_k,\inventory_k, \target)$, we now need to select an index $i_{k+1} \in \inventory_k$ and find the corresponding placement pose $q_{k+1}$ for the object such that the new scene $\scene_{k+1}:=\scene_k \cup \{(i_{k+1},q_{k+1})\}$ is physically feasible and approximates the target shape $\target$.
-
-The sequential decision-making process can be further modeled as a Markov Decision Process (MDP).
-We define the state space $\mathcal{S}$ as the set of states $\state_k := (\scene_k, \inventory_k, \target)$, the action space $\mathcal{A}$ as the set of actions $\action_k := (i_{k+1}, q_{k+1})$ representing the object index $i_{k+1}$ and its placement pose $q_{k+1}$, the transition function $\transition:\mathcal{S}\times\mathcal{A}\to\mathcal{S}$ that maps a state-action pair to the next state, and the reward function $\reward:\mathcal{S}\times\mathcal{A}\to\real$ that evaluates the improvement in approximating the target shape $\target$ while satisfying the physical constraints.
-We will describe the details of the reward function design in the later section \ref{sec:sequence_planning}.
-Therefore, the MDP can be defined as a tuple:
-\begin{equation*}
-    \mdp = (\mathcal{S}, \mathcal{A}, \transition, \reward, \gamma)
-\end{equation*}
-where $\gamma \in [0,1]$ is the discount factor that determines the importance of future rewards.
-
 \subsection{Shape Representation}
 Throughout the paper, we use the union of differentiable support function (DSF) to represent the 3D shapes of the target shape $\target$ and the objects $\object_i$, $i \in \inventory_k$, in the inventory.
 Given a compact convex body $\convex \subset \real^3$, the support function $\dsf_\convex :\real^3 \backslash\{0\} \to \real$ is defined as
@@ -58,6 +38,27 @@ The function $\dsf_{\convex}(x)$ can be easily extended through rigid-body trans
 for $q := (R,t) \in \SE(3)$ where $\bar{\convex}(q)=\{Rp + t\mid p \in \convex\}$ denotes a transformed $\convex$ under rigid-body transformation.
 Given two DSF represented convex bodies $\convex_1(q_1)$ and $\convex_2(q_2)$ with SE(3) poses $q_1,q_2$, the signed distance $\sd(\convex_1(q_1), \convex_2(q_2))$ between the two convex bodies can be easily computed using Riemannian optimization techniques associated with $\dsf_{\convex_1(q_1)}$ and $\dsf_{\convex_2(q_2)}$ as presented in An, et al. \cite{an2024riemannianmtd}.
 Moreover, due to the smoothness of DSFs, the signed distance $\sd(\convex_1(q_1), \convex_2(q_2))$ and the other contact information (e.g., normal vectors and contact points) are differentiable with respect to $q_1$ and $q_2$, which allows us to use gradient-based optimization techniques.
+
+\subsection{Markov Decision Process Formulation}
+
+Nevertheless, solving the optimization problem in Eq. \eqref{eq:problem_definition} is extremely challenging due to the high-dimensional search space as the number of the objects $n$ increases.
+In addition, the physical constraints involve complex contact dynamics which makes the problem even more difficult to solve.
+
+To address the problem Eq. \eqref{eq:problem_definition} in a tractable manner, we model the problem as a sequential decision-making process where we place one object at a time.
+Suppose that we have already placed $k$ objects in the scene and denote the set of indices of the placed objects as $\placed_k \subset \{1,\cdots,n\}$.
+Then, the $k$-th scene $\scene_k:=\{(i,q_i)\mid i \in \placed_k \}$ is the collection of object indices and their corresponding placement poses that have been placed in the scene.
+Also, let the $k$-th inventory $\inventory_k := \{1,\cdots, n\} \backslash \placed_k$ be the set of remaining object indices that have not been placed yet.
+Given $(\scene_k,\inventory_k, \target)$, we now need to select an index $i_{k+1} \in \inventory_k$ and find the corresponding placement pose $q_{k+1}$ for the object such that the new scene $\scene_{k+1}:=\scene_k \cup \{(i_{k+1},q_{k+1})\}$ is physically feasible and approximates the target shape $\target$.
+
+The sequential decision-making process can be further modeled as a Markov Decision Process (MDP).
+We define the state space $\mathcal{S}$ as the set of states $\state_k := (\scene_k, \inventory_k, \target)$, the action space $\mathcal{A}$ as the set of actions $\action_k := (i_{k+1}, q_{k+1})$ representing the object index $i_{k+1}$ and its placement pose $q_{k+1}$, the transition function $\transition:\mathcal{S}\times\mathcal{A}\to\mathcal{S}$ that maps a state-action pair to the next state, and the reward function $\reward:\mathcal{S}\times\mathcal{A}\to\real$ that evaluates the improvement in approximating the target shape $\target$ while satisfying the physical constraints.
+The transition function $\state_{k+1} =\transition(\state_k, \action_k)$ is defined as simulating the placement of the object $i_{k+1}$ at pose $q_{k+1}$ in the current scene $\scene_k$ to obtain the new scene $\scene_{k+1}$ and updating the inventory $\inventory_{k+1} = \inventory_k \backslash \{i_{k+1}\}$.
+We will describe the details of the simulation and reward function design in the later section \ref{sec:sequence_planning}.
+Therefore, the MDP can be defined as a tuple:
+\begin{equation*}
+    \mdp = (\mathcal{S}, \mathcal{A}, \transition, \reward, \gamma)
+\end{equation*}
+where $\gamma \in [0,1]$ is the discount factor that determines the importance of future rewards.
 
 \subsection{Overall Structure of the Sequence Planner}
 The overall structure of the sequence planner is illustrated in Fig. \ref{fig:overview}. 

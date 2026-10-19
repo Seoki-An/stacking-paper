@@ -80,7 +80,9 @@ The visualization examples of the score maps are shown in Fig. \ref{fig:score_ma
 % The score provides geometric guidance; $\poseopt$ subsequently refines the full pose and evaluates force equilibrium.
 
 \subsection{Structural Simulation}
-After the pose optimization module $\poseopt$ refines the candidate pose $\hat{q}_{k+1}$ to find a locally optimal placement pose $q_{k+1}$, we need to evaluate whether the new scene $\scene_{k+1} := \scene_k \cup \{(i_{k+1},q_{k+1})\}$ is physically feasible and stable.
+
+After the pose optimization module $\poseopt$ refines the candidate pose $\hat{q}_{k+1}$ to find a locally optimal placement pose $q_{k+1}$, the simulation module $\simul$ acts as a transition function $\state_{k+1} = \transition(\state_{k}, \action_{k})$.
+We need to evaluate whether the new scene $\scene_{k+1} := \scene_k \cup \{(i_{k+1},q_{k+1})\}$ is physically feasible and stable.
 The structural simulation module $\simul$ is responsible for simulating the physical behavior of the stacked objects under the influence of gravity and contact forces.
 For a given scene $\scene_k$ and an action $a_{k+1} = (i_{k+1}, q_{k+1})$, the structural simulation module $\simul$ evaluates whether the new scene $\scene_{k+1} := \scene_k \cup \{(i_{k+1},q_{k+1})\}$ is physically feasible and stable.
 Unlike the previous approaches of Johns et al. \cite{johns2020autonomous}, \cite{johns2023framework} which also use the simulation to validate the stability of individual objects, we simulate the overall scene $\scene_{k+1}$ instead of simulating only the newly placed object $\object_{i_{k+1}}$ to ensure that the entire scene is stable with the GPU-accelerated subADMM algorithm \cite{ji2025gpu} which is a scalable and efficient physics simulation algorithm for large-scale rigid body systems with contact.
