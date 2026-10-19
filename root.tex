@@ -11,6 +11,7 @@
 \usepackage{caption}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{xspace}
 
 \definecolor{codeblue}{RGB}{5, 75, 175}
 \definecolor{codegreen}{RGB}{0, 120, 40}
@@ -45,6 +46,7 @@
 \newcommand{\scene}{\mathcal{X}}
 \newcommand{\inventory}{\mathcal{I}}
 \newcommand{\placed}{\mathcal{P}}
+\newcommand{\candidate}{\mathcal{C}}
 \newcommand{\target}{T}
 \newcommand{\object}{O}
 \newcommand{\convex}{C}
@@ -56,15 +58,22 @@
 \newcommand{\transition}{p}
 \newcommand{\mdp}{\mathcal{M}}
 
+\newcommand{\planar}{\mathbf{x}}
+\newcommand{\score}{\sigma}
+
 \newcommand{\Vol}{\operatorname{Vol}}
-\newcommand{\sd}{\operatorname{sd}}
+\newcommand{\sd}{\operatorname{d}}
 \DeclareMathOperator*{\argmax}{arg\,max}
 \DeclareMathOperator*{\argmin}{arg\,min}
 
-\newcommand{\initpose}{\texttt{InitialPoseSampling}}
-\newcommand{\poseopt}{\texttt{PoseOptimization}}
-\newcommand{\simul}{\texttt{PhysicalSimulation}}
-\newcommand{\mcts}{\texttt{MCTS}}
+% \newcommand{\initpose}{\texttt{InitPose}\xspace}
+% \newcommand{\poseopt}{\texttt{PoseOpt}\xspace}
+% \newcommand{\simul}{\texttt{PhysSimul}\xspace}
+% \newcommand{\mcts}{\texttt{MCTS}\xspace}
+\newcommand{\initpose}{\pi_\text{init}}
+\newcommand{\poseopt}{\pi_\text{opt}}
+\newcommand{\simul}{\pi_\text{simul}}
+\newcommand{\mcts}{\pi_\text{mcts}}
 
 
 
@@ -126,13 +135,12 @@ This paper presents a novel approach for automated stacking of irregularly shape
 \IEEEpeerreviewmaketitle
  
 \input{sections/01_introduction.tex}
-
 \clearpage
-\input{sections/02_preliminaries.tex}
+\input{sections/02_related_works.tex}
 \input{sections/03_overview.tex}
-\input{sections/04_pose_optimization.tex}
-\input{sections/05_sequence_planning.tex}
-\input{sections/06_evaluations.tex}
+\input{sections/04_sequence_planning.tex}
+\input{sections/05_pose_optimization.tex}
+\input{sections/06_implementation.tex}
 \input{sections/07_experiments.tex}
 \input{sections/08_conclusion.tex}
 

@@ -1,8 +1,0 @@
-\section{Sequence Planning} \label{sec:sequence_planning}
-
-\subsection{Initial Pose Sampling}
-The initial pose sampler generates a set of candidates poses and the corresponding object indices in the inventory based on the target shape and the current scene configuration.
-Initially, using the heightmap $H_\target:\real^2 \to \real$ of the target shape, the heightmap $H_\scene:\real^2 \to \real$ of the current scene configuration and the  the sampler construct a planar score map that indicates the potential placement locations for each object in the inventory.
-
-% The initial pose sampling component generates a set of candidate poses $\mathcal{C}_i := \{\hat{q}_i^j\in \SE(3) \mid j=1,\cdots,n_i\}$ for each object $\object_i$ in the inventory $i\in \mathcal{I}_k$ based on the target shape $T$ and the scene configuration $\mathcal{S}_k$.
-% The sampler's goal is to provide a diverse set of initial poses to the pose optimization component so that it can find the pose that best fits the target shape while satisfying the physical constraints.

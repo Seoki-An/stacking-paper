@@ -1,0 +1,88 @@
+\begin{figure}[t]
+  \centering
+  \fbox{
+    \begin{minipage}[c][6cm][c]{0.95\columnwidth}
+      \centering
+      Visualization examples of the score maps of the initial pose sampling module $\initpose$.
+    \end{minipage}
+  }
+  \caption{Score maps of the initial pose sampling module $\initpose$.}
+  \label{fig:score_map}
+\end{figure}
+
+
+\section{Sequence Planning} \label{sec:sequence_planning}
+
+In this section, we introduce the initial pose sampler $\initpose$ that generates initial poses for the pose optimization module $\poseopt$, the structural simulation module $\simul$ that evaluates the stability of the scene, and the Monte Carlo Tree Search (MCTS) module $\mcts$ for sequence planning.
+
+\subsection{Initial Pose Sampling}
+The initial pose sampler $\initpose(i_{k+1},\hat{q}_{k+1}\mid \state_k)$ generates candidate poses and corresponding object indices $i\in\inventory_k$ from the current state $\state_k = (\scene_k, \inventory_k, \target)$ and the candidate pose $\hat{q}_{k+1}$ is refined by the pose optimization module $\poseopt$.
+The sampler is formulated as the following product of two distributions:
+\begin{equation*}
+    \begin{split}
+        \initpose(i_{k+1},\hat{q}_{k+1}\mid \state_k) ={}& \pi_{xy}(\planar\mid i_{k+1},R,s_k) \\
+        &\times \pi_\text{unif}(i_{k+1},R\mid s_k)        
+    \end{split}
+\end{equation*}
+where $\pi_\text{unif}(i_{k+1},R\mid s_k)$ is a uniform distribution over $\inventory_k$ and a pre-defined finite rotation set, and $\pi_{xy}(\planar\mid i_{k+1},R,s_k)$ is a distribution over planar translations $\planar=(x,y)$ given the object $i_{k+1}$ and its orientation $R$.
+The height $z$ of the candidate pose $\hat{q}_{k+1}=(R,t)$ is heuristically determined by the scene's upper-surface so that the object is placed above the scene since the pose optimization module $\poseopt$ will refine the candidate pose to find a stable placement pose $q_{k+1}$ that is in contact with the scene.
+We will omit the dependency of $\pi_{xy}$ on $s_k$ in the following subsections for convenience.
+
+For the planar translation distribution $\pi_{xy}(\planar\mid i_{k+1},R,s_k)$, we define a proposal score $\score(\planar\mid i_{k+1},R,s_k)$ that approximately estimates the quality of the candidate pose $\hat{q}_{k+1}$ based on the geometric information of the scene $\scene_k$, the target shape $\target$, and the object $i_{k+1}$.
+Then, we define 
+\begin{equation*}
+    \pi_{xy}(\planar\mid i_{k+1},R,s_k) \propto \exp\left(\score(\planar\mid i_{k+1},R,s_k) / \tau\right)
+\end{equation*}
+so that the sampler favors candidate poses with higher proposal scores where $\tau > 0$ is a temperature parameter.
+The proposal score $\score(\planar\mid i_{k+1},R,s_k)$ is formulated as a weighted sum of several geometric features that are computed based on the scene $\scene_k$, the target shape $\target$, and the object $i_{k+1}$:
+\begin{equation*}
+  \begin{split}
+    \score(\planar\mid i_{k+1},R) ={}& w_\text{s}\score_\text{s}(\planar\mid i_{k+1},R)+w_\text{f}\score_\text{f}(\planar\mid i_{k+1},R) \\
+    &+w_\text{b}\score_\text{b}(\planar\mid i_{k+1},R)-w_\text{h}\score_\text{h}(\planar\mid i_{k+1},R),
+  \end{split}
+%   \label{eq:initial_pose_score}
+\end{equation*}
+where $\score_\text{s}$ is the support area score map, $\score_\text{f}$ is the filled floor area score map, $\score_\text{b}$ is the boundary proximity score map, and $\score_\text{h}$ is the height score map, respectively with weight parameters $w_\text{h}$, $w_\text{s}$, $w_\text{f}, w_\text{b} > 0$.
+
+Intuitively, the score $\score_\text{s}$ encourages the object to be placed on a larger support area, the score $\score_\text{f}$ encourages the object to fill the empty floor area, the score $\score_\text{b}$ encourages to fill the boundary of the target shape $\target$ first, and the last score $\score_\text{h}$ encourages the object to be placed at a lower height to improve stability.
+The visualization examples of the score maps are shown in Fig. \ref{fig:score_map} and the details of the score map computation will be described in the appendix.
+
+% We leveraged the upper-surface height map $H_{\scene_k}:\real^2 \to \real$ of the scene $\scene_k$ and the bottom height map $H_{\object_i(R)}:\real^2 \to \real$ of the rotated object $O_i(R):=\{Rp \mid p \in O_i\}$ to compute the proposal score $\score(\planar\mid O_i,R)$.
+
+% To estimate support, the rotated bottom surface is translated vertically until it clears the sampled scene surface.
+% Bottom samples whose resulting gaps are at most $\epsilon_c$ form the approximate contact region.
+% The support score $\sigma_\text{s}$ is the fraction of projected bottom samples in this region, and $H_{c,i}$ is the mean scene height at those samples.
+% The height score $\sigma_\text{h}$ term is
+% \begin{equation*}
+%   \score_\text{h}(\planar\mid O_i,R)=\frac{H_{c,i}-H_{c,i}^{\min}}
+%   {\max(H_{c,i}^{\max}-H_{c,i}^{\min},10^{-6}\,\mathrm m)},
+% \end{equation*}
+% where the extrema are taken over the object's target-, open-space-, and support-valid anchor/rotation hypotheses before connectivity filtering.
+% Empty support kernels or incomplete scene-heightmap coverage invalidate a hypothesis.
+
+% For floor filling, let $U_i(\planar\mid R)$ be the unoccupied active-floor area inside the object's rectangular scoring footprint, clipped to the nominal target rectangle.
+% This footprint uses the rotated hull's XY offsets scaled by $0.9$.
+% With $\Delta A_f$ denoting one floor-grid cell's area, the fill score is
+% \begin{gather*}
+%   F_i(\planar\mid R)=\frac{U_i(\planar\mid R)}
+%   {\max(\Delta A_f,U_i^{\max})}, \\
+%   U_i^{\max}=\max_{(\planar',R')\in\candidate_{i,\mathrm{open}}}
+%   U_i(\planar'\mid R'),
+% \end{gather*}
+% where $\candidate_{i,\mathrm{open}}$ contains the object's target-valid hypotheses with positive unfilled area before connectivity and support filtering.
+% The normalization is shared across orientations; an empty active floor uses $F_i=0$.
+
+% For boundary scoring, the target bounds are tapered inward at the estimated contact height and inset using the scaled rotated hull offsets.
+% Writing their center and half-span as $c_T$ and $r_T$, respectively, gives
+% $B_i(\planar\mid R)=\|(\planar-c_T)\oslash r_T\|_\infty$ inside valid bounds and zero otherwise, where $\oslash$ denotes componentwise division.
+% Thus, larger $B_i$ favors anchors nearer a target edge.
+% Connectivity is enforced as an admission rule rather than a score term.
+% The score provides geometric guidance; $\poseopt$ subsequently refines the full pose and evaluates force equilibrium.
+
+\subsection{Structural Simulation}
+After the pose optimization module $\poseopt$ refines the candidate pose $\hat{q}_{k+1}$ to find a locally optimal placement pose $q_{k+1}$, we need to evaluate whether the new scene $\scene_{k+1} := \scene_k \cup \{(i_{k+1},q_{k+1})\}$ is physically feasible and stable.
+The structural simulation module $\simul$ is responsible for simulating the physical behavior of the stacked objects under the influence of gravity and contact forces.
+For a given scene $\scene_k$ and an action $a_{k+1} = (i_{k+1}, q_{k+1})$, the structural simulation module $\simul$ evaluates whether the new scene $\scene_{k+1} := \scene_k \cup \{(i_{k+1},q_{k+1})\}$ is physically feasible and stable.
+Unlike the previous approaches of Johns et al. \cite{johns2020autonomous}, \cite{johns2023framework} which also use the simulation to validate the stability of individual objects, we simulate the overall scene $\scene_{k+1}$ instead of simulating only the newly placed object $\object_{i_{k+1}}$ to ensure that the entire scene is stable with the GPU-accelerated subADMM algorithm \cite{ji2025gpu} which is a scalable and efficient physics simulation algorithm for large-scale rigid body systems with contact.
+
+\subsection{Monte Carlo Tree Search for Sequence Planning}

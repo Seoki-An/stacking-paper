@@ -1,4 +1,16 @@
-\section{Problem Formulation and Framework Overview} \label{sec:overview}
+\begin{figure}[t]
+  \centering
+  \fbox{
+    \begin{minipage}[c][6cm][c]{0.95\columnwidth}
+      \centering
+      Overview
+    \end{minipage}
+  }
+  \caption{Overview.}
+  \label{fig:overview}
+\end{figure}
+
+\section{Overview} \label{sec:overview}
 
 \subsection{Stacking as an Optimization Problem}
 Suppose that we are given a target shape $\target \subset \real^3$ and $n$ irregular shaped objects $\object_1(q_1),\object_2(q_2),\cdots,\object_n(q_n) \subset \real^3$ where each $q_i \in \SE(3)$ represents the pose of each object $\object_i$ in the world frame.
@@ -30,9 +42,25 @@ Therefore, the MDP can be defined as a tuple:
 \end{equation*}
 where $\gamma \in [0,1]$ is the discount factor that determines the importance of future rewards.
 
+\subsection{Shape Representation}
+Throughout the paper, we use the union of differentiable support function (DSF) to represent the 3D shapes of the target shape $\target$ and the objects $\object_i$, $i \in \inventory_k$, in the inventory.
+Given a compact convex body $\convex \subset \real^3$, the support function $\dsf_\convex :\real^3 \backslash\{0\} \to \real$ is defined as
+\begin{equation*}
+    \dsf_\convex(x) = \max_{s \in \convex} x\cdot s
+\end{equation*}
+where $\cdot$ denotes the standard inner product in $\real^3$.
+The work of Lee et al. \cite{lee2023uncertain} presented a differentiable version of the support function $\dsf_\convex$ that represents a smooth shape $\convex$.
+
+The function $\dsf_{\convex}(x)$ can be easily extended through rigid-body transformation as follows:
+\begin{equation*}
+    \dsf_{\bar{\convex}(q)}(x) = \dsf_\convex(R^\top x) + t \cdot x
+\end{equation*}
+for $q := (R,t) \in \SE(3)$ where $\bar{\convex}(q)=\{Rp + t\mid p \in \convex\}$ denotes a transformed $\convex$ under rigid-body transformation.
+Given two DSF represented convex bodies $\convex_1(q_1)$ and $\convex_2(q_2)$ with SE(3) poses $q_1,q_2$, the signed distance $\sd(\convex_1(q_1), \convex_2(q_2))$ between the two convex bodies can be easily computed using Riemannian optimization techniques associated with $\dsf_{\convex_1(q_1)}$ and $\dsf_{\convex_2(q_2)}$ as presented in An, et al. \cite{an2024riemannianmtd}.
+Moreover, due to the smoothness of DSFs, the signed distance $\sd(\convex_1(q_1), \convex_2(q_2))$ and the other contact information (e.g., normal vectors and contact points) are differentiable with respect to $q_1$ and $q_2$, which allows us to use gradient-based optimization techniques.
 
 \subsection{Overall Structure of the Sequence Planner}
 The overall structure of the sequence planner is illustrated in Fig. \ref{fig:overview}. 
 The sequence planner basically use Monte Carlo Tree Search (MCTS) to explore the space of possible stacking sequences, and during the search, it utilizes several components to sample the valid poses and evaluate the feasibility and quality of each candidate stacking sequence.
-The main components of the sequence planner include initial pose sampling module \initpose, single object pose optimization module \poseopt, and structural simulation module \simul.
+The main components of the sequence planner include initial pose sampling module $\initpose$, single object pose optimization module $\poseopt$, and structural simulation module $\simul$.
 We will further describe each component in detail in the later sections \ref{sec:pose_optimization} and \ref{sec:sequence_planning}.

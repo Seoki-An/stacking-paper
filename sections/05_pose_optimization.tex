@@ -1,0 +1,117 @@
+\section{Pose Optimization} \label{sec:pose_optimization}
+
+% In this section, we describe the pose optimization module $\poseopt$ that is used to refine a candidate placement pose for an object in the scene to find a locally optimal placement pose that likely leads to a physically feasible configuration and better approximates the target shape $\target$.
+% Moreover, we describe the simulation module $\simul$ that is used to refine the configuration of the scene and evaluate whether the new scene is physically feasible and stable after placing a new object.
+In this section, we describe the pose optimization module $\poseopt$ and the simulation module $\simul$ that refine a candidate placement pose to find a locally optimal configuration and evaluate whether the new scene is stable after placing a new object.
+
+\subsection{Single Object Pose Optimization Problem}
+
+For a given scene $\scene_k$, a target shape $\target$, and a candidate object $\object_{i_{k+1}}$, each pose refinement can be formulated as solving a constrained optimization problem:
+\begin{IEEEeqnarray}{rCl}
+  \min_{q, \lambda } &{\quad}& \left[f_\text{geo}(q) + f_\text{phys}(q, \lambda)\right] \label{eq:pose_optimization} \\ 
+    \text{s.t. } &{\quad}& g_{\text{cone},j}(q,\lambda_j) \leq 0, \quad j=1,\cdots,n_c \nonumber
+\end{IEEEeqnarray}
+where $q \in \SE(3)$ is the pose of the object and $\lambda = (\lambda_1,\cdots,\lambda_{n_c}) \in \real^{3n_c}$ is the vector of contact forces at the $n_c$ contact points between the object and the scene.
+
+The geometric objective $f_\text{geo}(q)$ is designed to evaluate how well the configuration approximates the target shape $\target$ while satisfying the physical constraints such as collision avoidance of $\object_{i_{k+1}}$ in the scene $\scene_k$.
+The detailed formulation of $f_\text{geo}(q)$ will be described in the appendix.
+% The geometric objective $f_\text{geo}$ is designed as follows:
+% \begin{equation*}
+%   \begin{split}
+%     f_\text{geo}(q) 
+%     ={}& w_\text{h} f_\text{h}(q) + w_\text{in}f_\text{in}(q \mid \target, \object_{i_{k+1}}) \\
+%     &+ w_\text{pen}f_\text{pen}(q \mid \scene_k, \object_{i_{k+1}})
+%   \end{split}
+% \end{equation*}
+% where $f_\text{h}(q)$ evaluates the height of the object $\object_{i_{k+1}}$ at the pose $q$ to encourage the object to be placed at a lower height for stability, $f_\text{in}(q \mid \target, \object_{i_{k+1}})$ evaluates how well the configuration approximates the target shape $\target$, and $f_\text{pen}(q \mid \scene_k, \object_{i_{k+1}})$ penalizes penetration depth between the object $\object_{i_{k+1}}$ and the objects in the scene $\scene_k$ to avoid collisions.
+% The weights $w_\text{h}, w_\text{in}, w_\text{pen} > 0$ are parameters that balance the importance of each term in the geometric objective $f_\text{geo}$.
+% The detailed formulation of $f_\text{in}$ and $f_\text{pen}$ will be described in the appendix.
+The physical objective $f_\text{phys}(q,\lambda)$ is designed to evaluate whether the contact forces $\lambda$ are physically feasible and contribute to a stable configuration.
+For indices $l, m \in \placed_k$ such that $l < m$, let $I_{l,m} \subset \{1,\cdots,n_c\}$ be the set of contact point indices associated with the objects $\object_l$, $\object_m$, and let $I_{l} := \bigcup_{m \in \placed_k} I_{l,m}$ be the set of contact point indices associated with the object $\object_l$.
+Then, the physical objective $f_\text{phys}(q,\lambda)$ is defined as the following:
+\begin{equation}
+  \begin{split}
+    f_\text{phys}(q,\lambda) \label{eq:force_objective}
+    ={}& w_\text{eq}\sum_{l \in \placed_k} \|J_{c,I_l}^\top(q)  \lambda_{I_l} + \lambda_{\text{ext},l}\|^2 \\
+    &+ w_\text{cp}\sum_{j \in I_{i_{k+1}}}\sd_j(q)^2 \|\lambda_j\|^2 + \rho\sum_{j = 1}^{n_c} \|\lambda_j\|^2    
+  \end{split} 
+\end{equation}
+% \begin{align}
+%     f_\text{phys}(q,\lambda) \label{eq:force_objective}
+%     ={}& w_\text{eq}\sum_{l \in \placed_k} \|J_{c,I_l}^\top(q)  \lambda_{I_l} + \lambda_{\text{ext},l}\|^2 \\
+%     &+ w_\text{cp}\sum_{j \in I_{i_{k+1}}}\sd_j(q)^2 \|\lambda_j\|^2 + \rho\sum_{j = 1}^{n_c} \|\lambda_j\|^2 \nonumber
+% \end{align}
+where $J_{c,I_l}(q) \in \real^{3|I_l| \times 6}$ is the Jacobian of the contact constraints associated with the object $\object_l$ at the contact points in $I_l$, $\lambda_{I_l} \in \real^{3|I_l|}$ is the vector of contact forces at the contact points in $I_l$, and $\lambda_{\text{ext},l} \in \real^6$ is the external wrench acting on the object $\object_l$.
+The first term in $f_\text{phys}(q,\lambda)$ penalizes the violation of the static equilibrium constraints for each object in the scene.
+The second term penalizes the complementarity conditions on the contact forces between the candidate object $\object_{i_{k+1}}$ and the objects in the scene $\placed_k$ based on the signed distance $\sd_j(q)$ between the two objects at the $j$-th contact point.
+The third term with $\rho > 0$ is a regularization term to enhance the convexity of the objective function.
+The weights $w_\text{eq}, w_\text{cp} > 0$ are parameters that balance the importance of each term in the force objective $f_\text{phys}$.
+
+Finally, each $g_{\text{cone},j}(\cdot)$ is the smoothed friction cone constraints for the $j$-th contact point defined by
+\begin{equation}
+    g_{\text{cone},j}(q, \lambda_j) = \sqrt{\|J_{c,j}^t \lambda_j \|^2 + \epsilon} - \mu_j  J_{c,j}^n \lambda_j
+    \label{eq:friction_cone}
+\end{equation}
+where $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint at the $j$-th contact point.
+
+We note that, due to the smoothness of DSFs, the terms in the objective function dependent to $q$ are formulated which allows us to use gradient-based optimization techniques to optimize the placement pose of the object $\object_{i_{k+1}}$.
+
+
+\subsection{Bi-level Optimization Formulation}
+
+Given a fixed pose $q$, the contact forces $\lambda$ can be efficiently optimized by solving a quadratic programming problem under the second-order cone constraints.
+Therefore, rather than solving \eqref{eq:pose_optimization} directly, we can reformulate the problem as a bi-level optimization problem where the upper-level problem optimizes $q$ and the lower-level problem optimizes  $\lambda$ for a given pose $q$:
+\begin{IEEEeqnarray}{rCl}
+  \min_{q } &{\quad}& \left[ f_\text{geo}(q) + \min_{\lambda} f_\text{phys}(q, \lambda) \right]  \label{eq:pose_optimization_bilevel} \\ 
+    \text{s.t. } &{\quad}& g_{\text{cone},j}(q, \lambda_j) \leq 0, \quad j=1,\cdots,n_c. \nonumber
+\end{IEEEeqnarray}
+Reflecting the definitions of $f_\text{phys}(q, \lambda)$ and $g_{\text{cone},j}(q, \lambda_j)$ in \eqref{eq:force_objective} and \eqref{eq:friction_cone}, we can easily see that the lower-level problem is a convex optimization problem with respect to $\lambda$ for a fixed $q$ which can be efficiently solved.
+
+Denoting $\lambda^*(q)$ as the optimal $\lambda$ of the lower-level problem for a given pose $q$,  we define the force dependent objective function as $f_\text{phys}(q) := f_\text{phys}(q, \lambda^*(q))$.
+Then, using the \textit{Envelope theorem} \cite{carter2001matheconomics}, we can compute the gradient of $f_\text{phys}(q)$ with respect to $q$ as follows:
+\begin{equation*}
+    \frac{df_\text{phys}(q)}{dq} = \frac{\partial f_\text{phys}(q, \lambda^*)}{\partial q} + \sum_{j=1}^{n_c} \nu^*_j \frac{\partial g_{\text{cone},j}(q, \lambda^*_j)}{\partial q}
+\end{equation*}
+where $\nu^*_j$ is the optimal dual variable associated with the $j$-th friction cone constraint $g_{\text{cone},j}(q, \lambda^*_j) \leq 0$.
+Using the above gradient, we optimize the placement pose $q$ on SE(3) manifold based on the Riemannian trust-region method \cite{absil2007trust} combined with Riemannian BFGS Hessian approximation \cite{huang2018riemannianbfgs} to find a locally optimal placement pose $q_{i_{k+1}}$ that minimizes the objective function $f_\text{geo}(q) + f_\text{phys}(q)$ while satisfying the friction cone constraints $g_{\text{cone},j}(q, \lambda^*_j(q)) \leq 0$.
+In addition, motivated by homotopy based optimization methods \cite{}, we designed the sequence of the weight parameters in $f_\text{geo}(q)$ and $f_\text{phys}(q)$ such as $w_\text{eq}$, $w_\text{cp}$ and iteratively solve the bi-level optimization problem \eqref{eq:pose_optimization_bilevel} to induce a better local minimum that satisfies the physical constraints and approximates the target shape $\target$.
+
+\begin{figure}[t]
+  \centering
+  \fbox{
+    \begin{minipage}[c][6cm][c]{0.95\columnwidth}
+      \centering
+      Toy example of comparing the overall structural stability of the scene and the local structural stability of the candidate object
+    \end{minipage}
+  }
+  \caption{Toy example of comparing the overall structural stability of the scene and the local structural stability of the candidate object.}
+  \label{fig:overview}
+\end{figure}
+
+\subsection{Force Optimization}
+As mentioned before, given a fixed pose $q$, the contact forces $\lambda$ can be efficiently optimized by solving a quadratic programming problem under the second-order cone constraints.
+Moreover, exploiting the inherent structure of the problem, we solve the problem in scalable manner by applying an Alternative Direction Method of Multipliers (ADMM) \cite{}.
+Observe that each $\lambda_j$ acts on two objects $\object_l$ and $\object_m$ such that $j \in I_{l,m}$ for some $l, m \in \placed_k$ and $l < m$.
+Then, the contact force $\lambda_j$ can be split into two variables $\lambda_{j,1}$ and $\lambda_{j,2}$ such that $\lambda_{j,1} = \lambda_{j,2}$ where $\lambda_{j,1}$ is the contact force acting on $\object_l$ and $\lambda_{j,2}$ is the contact force acting on $\object_m$.
+Extending this to all contact forces, we define the extended contact forces $\tilde{\lambda} = (\lambda_{1,1},\lambda_{1,2},\cdots,\lambda_{n_c,1},\lambda_{n_c,2})$ and the index set $\tilde{I}_{l,m} := \{(j,s) \mid j \in I_{l,m}, s = 1 \text{ if $l < m$}, s = 2 \text{ if $l > m$}\}$ with $\tilde{I}_{l} := \bigcup_{m \in \placed_k} \tilde{I}_{l,m}$.
+Then, the first term in $f_\text{phys}(q,\lambda)$ can be reformulated as 
+\begin{equation*}
+  \sum_{l \in \placed_k} \|J_{c,\tilde{I}_l}^\top(q)  \tilde{\lambda}_{\tilde{I}_l} + \lambda_{\text{ext},l}\|^2
+\end{equation*}
+where $\tilde{\lambda}_{\tilde{I}_l} \in \real^{3|\tilde{I}_l|}$ is the vector of extended contact forces at the contact points in $\tilde{I}_l$.
+The important observation is that the reformulated term is separable with respect to each object $\object_l$ in the scene $\placed_k$ since $\tilde{I}_l \cap \tilde{I}_m = \emptyset$ for any $l \neq m$.
+Then, the lower-level problem can be reformulated as the following optimization problem with the separable objective function and the consensus constraints:
+\begin{IEEEeqnarray*}{rCl}
+  \min_{\tilde{\lambda}}&{\quad}&\tilde{f}_\text{phys}(q,\tilde{\lambda}) + \sum_{\substack{j = 1,\cdots,n_c \\ s = 1,2}} \delta_{K_j}(z_{j,s}) \\
+  \text{s.t. }&{\quad}&\lambda_{j,1} = \lambda_{j,2} = z_{j,1} = z_{j,2} \\
+  &{\quad}&\text{for } j=1,\cdots,n_c.
+\end{IEEEeqnarray*}
+where $\tilde{f}_\text{phys}(q,\tilde{\lambda})$ is the extended physical force function and $\delta_{K_j}(z_{j,s})$ is the indicator function of the second-order cone $K_j := \{\lambda \in \real^3 \mid g_{\text{cone},j}(q, \lambda) \leq 0\}$ for the $j$-th contact point and $z_{j,s}$ is an auxiliary variable for the $j$-th contact point and $s = 1,2$.
+Applying ADMM to the above problem, we can decompose the problem into $|\placed_k|$ independent subproblems for each object $\object_l$ in the scene $\placed_k$, $2n_c$ times of projection onto the second-order cones $K_j$ for $j=1,\cdots,n_c$ which can be computed in closed-form and $2n_c$ times of averaging for the auxiliary variables $z_{j,s}$ for $j=1,\cdots,n_c$ and $s = 1,2$.
+The detailed ADMM algorithm for the lower-level problem is described in the appendix.
+
+We want to ephasize that the force optimization approach considers the overall structural stability of the scene by evaluating the static equilibrium constraints for all objects in the scene, rather than just the candidate object $\object_{i_{k+1}}$.
+Moreover, ADMM allows us to solve the problem in a scalable manner even for large-scale problems by decomposing the problem into independent subproblems for each object in the scene.
+
+% \subsection{Implementation}
+% To fully utilize the splitting structure of the lower-level problem and accelerate the whole pose optimization process, we implemented the DSF-based collision detection, the force optimization, and the pose optimization in CUDA to run on GPU.
