@@ -36,10 +36,9 @@ Then, the physical objective $f_\text{phys}(q,\lambda)$ is defined as the follow
     &+ w_\text{cp}\sum_{j \in I_{i_{k+1}}}\sd_j(q)^2 \|\lambda_j\|^2 + \rho\sum_{j = 1}^{n_c} \|\lambda_j\|^2    
   \end{split} 
 \end{equation}
-where $J_{c,I_l}(q) \in \real^{3|I_l| \times 6}$ is the Jacobian of the contact constraints associated with the object $\object_l$ at the contact points in $I_l$, $\lambda_{I_l} \in \real^{3|I_l|}$ is the vector of contact forces at the contact points in $I_l$, and $\lambda_{\text{ext},l} \in \real^6$ is the external wrench acting on the object $\object_l$.
-The first term in $f_\text{phys}(q,\lambda)$ penalizes the violation of the static equilibrium constraints for each object in the scene.
-The second term penalizes the complementarity conditions on the contact forces between the candidate object $\object_{i_{k+1}}$ and the objects in the scene $\placed_k$ based on the signed distance $\sd_j(q)$ between the two objects at the $j$-th contact point.
-The third term with $\rho > 0$ is a regularization term to enhance the convexity of the objective function.
+where $J_{c,I_l}(q) \in \real^{3|I_l| \times 6}$ is the Jacobian of the contact constraints associated with the object $\object_l$ at the contact points in $I_l$, $\lambda_{I_l} \in \real^{3|I_l|}$ is the vector of contact forces at the contact points in $I_l$, and $\lambda_{\text{ext},l} \in \real^6$ is the external wrench acting on the object $\object_l$ such as gravity.
+
+In $f_\text{phys}(q,\lambda)$, the first term penalizes the violation of the static equilibrium constraints for each object in the scene, the second term penalizes the complementarity conditions on the contact forces between the candidate object $\object_{i_{k+1}}$ and the objects in the scene $\placed_k$, and the third term with $\rho > 0$ is a regularization term for numerical stability.
 The weights $w_\text{eq}, w_\text{cp} > 0$ are parameters that balance the importance of each term in the force objective $f_\text{phys}$.
 
 Finally, each $g_{\text{cone},j}(\cdot)$ is the smoothed friction cone constraints for the $j$-th contact point defined by
@@ -47,7 +46,7 @@ Finally, each $g_{\text{cone},j}(\cdot)$ is the smoothed friction cone constrain
     g_{\text{cone},j}(q, \lambda_j) = \sqrt{\|J_{c,j}^t \lambda_j \|^2 + \epsilon} - \mu_j  J_{c,j}^n \lambda_j
     \label{eq:friction_cone}
 \end{equation}
-where $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint at the $j$-th contact point.
+where $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint.
 
 We note that, due to the smoothness of DSFs, the terms in the objective function dependent to $q$ are formulated which allows us to use gradient-based optimization techniques to optimize the placement pose of the object $\object_{i_{k+1}}$.
 

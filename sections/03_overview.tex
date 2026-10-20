@@ -48,12 +48,19 @@ To address the problem Eq. \eqref{eq:problem_definition} in a tractable manner, 
 Suppose that we have already placed $k$ objects in the scene and denote the set of indices of the placed objects as $\placed_k \subset \{1,\cdots,n\}$.
 Then, the $k$-th scene $\scene_k:=\{(i,q_i)\mid i \in \placed_k \}$ is the collection of object indices and their corresponding placement poses that have been placed in the scene.
 Also, let the $k$-th inventory $\inventory_k := \{1,\cdots, n\} \backslash \placed_k$ be the set of remaining object indices that have not been placed yet.
-Given $(\scene_k,\inventory_k, \target)$, we now need to select an index $i_{k+1} \in \inventory_k$ and find the corresponding placement pose $q_{k+1}$ for the object such that the new scene $\scene_{k+1}:=\scene_k \cup \{(i_{k+1},q_{k+1})\}$ is physically feasible and approximates the target shape $\target$.
+Given $(\scene_k,\inventory_k, \target)$, we now need to select an index $i_{k+1} \in \inventory_k$ and find the corresponding placement pose $q_{k+1}$ for the object. The resulting provisional scene is subsequently simulated to determine whether it is physically feasible and how well it approximates the target shape $\target$.
 
 The sequential decision-making process can be further modeled as a Markov Decision Process (MDP).
 We define the state space $\mathcal{S}$ as the set of states $\state_k := (\scene_k, \inventory_k, \target)$, the action space $\mathcal{A}$ as the set of actions $\action_k := (i_{k+1}, q_{k+1})$ representing the object index $i_{k+1}$ and its placement pose $q_{k+1}$, the transition function $\transition:\mathcal{S}\times\mathcal{A}\to\mathcal{S}$ that maps a state-action pair to the next state, and the reward function $\reward:\mathcal{S}\times\mathcal{A}\to\real$ that evaluates the improvement in approximating the target shape $\target$ while satisfying the physical constraints.
-The transition function $\state_{k+1} =\transition(\state_k, \action_k)$ is defined as simulating the placement of the object $i_{k+1}$ at pose $q_{k+1}$ in the current scene $\scene_k$ to obtain the new scene $\scene_{k+1}$ and updating the inventory $\inventory_{k+1} = \inventory_k \backslash \{i_{k+1}\}$.
-We will describe the details of the simulation and reward function design in the later section \ref{sec:sequence_planning}.
+
+More specifically, the pose $q_{k+1}$ in an action is first inserted into the current scene to form a provisional scene $\tilde{\scene}_{k+1} := \scene_k \cup \{ (i_{k+1},q_{k+1}) \}$.
+Then, the transition operator evaluates the physical simulation of the provisional scene under gravity and contact dynamics and returns a settled scene $\scene_{k+1}$. 
+Therefore, the transition function $\transition$ can be defined as
+\begin{equation*}
+    \state_{k+1} = \transition(\state_k, \action_k) = (\scene_{k+1}, \inventory_{k+1}, \target)
+\end{equation*}
+where $\inventory_{k+1} = \inventory_k \backslash \{i_{k+1}\}$.
+Its output statistics can also be used by the reward function, for example to penalize residual motion or instability or even failure. The implementation of this transition and the reward design are described in Sec. \ref{sec:sequence_planning}.
 Therefore, the MDP can be defined as a tuple:
 \begin{equation*}
     \mdp = (\mathcal{S}, \mathcal{A}, \transition, \reward, \gamma)
@@ -62,6 +69,16 @@ where $\gamma \in [0,1]$ is the discount factor that determines the importance o
 
 \subsection{Overall Structure of the Sequence Planner}
 The overall structure of the sequence planner is illustrated in Fig. \ref{fig:overview}. 
-The sequence planner basically use Monte Carlo Tree Search (MCTS) to explore the space of possible stacking sequences, and during the search, it utilizes several components to sample the valid poses and evaluate the feasibility and quality of each candidate stacking sequence.
-The main components of the sequence planner include initial pose sampling module $\initpose$, single object pose optimization module $\poseopt$, and structural simulation module $\simul$.
-We will further describe each component in detail in the later sections \ref{sec:pose_optimization} and \ref{sec:sequence_planning}.
+The sequence planner uses Monte Carlo Tree Search (MCTS) to explore the space of possible stacking sequences. For each expansion, it first uses the initial pose sampler $\initpose$ to generate a candidate pose $\hat{q}_{k+1}$, and then uses the pose optimization module $\poseopt$ to refine it into a locally optimal pose $q_{k+1}$. The structural simulation module $\simul$ subsequently implements the physical transition by evaluating the entire provisional scene and producing the settled next state. The resulting validity and simulation statistics are used to determine whether the action is admitted to the search tree and to evaluate its reward.
+
+This gives the following execution flow:
+\begin{equation*}
+\state_k
+\xrightarrow{\ \initpose\ }
+\hat{q}_{k+1}
+\xrightarrow{\ \poseopt\ }
+q_{k+1}
+\xrightarrow{\ \simul\ }
+\state_{k+1},\ \reward(\state_k,\action_k).
+\end{equation*}
+We describe pose optimization in Sec. \ref{sec:pose_optimization} and sequence planning, including structural simulation and reward design, in Sec. \ref{sec:sequence_planning}.
