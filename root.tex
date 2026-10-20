@@ -12,6 +12,8 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{xspace}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 
 \definecolor{codeblue}{RGB}{5, 75, 175}
 \definecolor{codegreen}{RGB}{0, 120, 40}
@@ -58,6 +60,8 @@
 \newcommand{\transition}{p}
 \newcommand{\mdp}{\mathcal{M}}
 \newcommand{\terminal}{\mathrm{terminal}}
+\newcommand{\tree}{\mathcal{T}}
+\newcommand{\nodes}{\mathcal{V}}
 
 \newcommand{\planar}{\mathbf{x}}
 \newcommand{\score}{\sigma}
@@ -67,10 +71,6 @@
 \DeclareMathOperator*{\argmax}{arg\,max}
 \DeclareMathOperator*{\argmin}{arg\,min}
 
-% \newcommand{\initpose}{\texttt{InitPose}\xspace}
-% \newcommand{\poseopt}{\texttt{PoseOpt}\xspace}
-% \newcommand{\simul}{\texttt{PhysSimul}\xspace}
-% \newcommand{\mcts}{\texttt{MCTS}\xspace}
 \newcommand{\initpose}{\pi_\text{init}}
 \newcommand{\poseopt}{\pi_\text{opt}}
 \newcommand{\simul}{\pi_\text{simul}}
@@ -80,7 +80,7 @@
 \begin{document}
 
 % paper title
-\title{Automated Irregular Shaped Object Stacking via Monte Carlo Tree Search and Optimization}
+\title{Automated Irregular Shaped Object Stacking via Pose Optimization and Monte Carlo Tree Search}
 
 % You will get a Paper-ID when submitting a pdf file to the conference system
 \author{Author Names Omitted for Anonymous Review. Paper-ID [add your ID here]}
@@ -140,9 +140,9 @@ This paper presents a novel approach for automated stacking of irregularly shape
 \input{sections/03_overview.tex}
 \input{sections/04_pose_optimization.tex}
 \input{sections/05_sequence_planning.tex}
-\input{sections/06_implementation.tex}
-\input{sections/07_experiments.tex}
-\input{sections/08_conclusion.tex}
+% \input{sections/06_implementation.tex}
+% \input{sections/07_experiments.tex}
+% \input{sections/08_conclusion.tex}
 \clearpage
 
 % \section{Introduction}
@@ -259,5 +259,4 @@ This paper presents a novel approach for automated stacking of irregularly shape
 \bibliography{references}
 
 \end{document}
-
 

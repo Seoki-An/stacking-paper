@@ -24,7 +24,7 @@ The sampler is formulated as the following product of two distributions:
         &\times \pi_\text{unif}(i_{k+1},R\mid s_k)        
     \end{split}
 \end{equation*}
-where $\pi_\text{unif}(i_{k+1},R\mid s_k)$ is a uniform distribution over $\inventory_k$ and a pre-defined finite rotation set, and $\pi_{xy}(\planar\mid i_{k+1},R,s_k)$ is a distribution over planar translations $\planar=(x,y)$ given the object $i_{k+1}$ and its orientation $R$.
+where $\pi_\text{unif}(i_{k+1},R\mid s_k)$ is a uniform distribution over $\inventory_k$ and a pre-defined finite rotation set $\mathcal{R}$, and $\pi_{xy}(\planar\mid i_{k+1},R,s_k)$ is a distribution over planar translations $\planar=(x,y)$ given the object $i_{k+1}$ and its orientation $R$.
 The height $z$ of the candidate pose $\hat{q}_{k+1}=(R,t)$ is heuristically determined by the scene's upper-surface so that the object is placed above the scene since the pose optimization module $\poseopt$ will refine the candidate pose to find a stable placement pose $q_{k+1}$ that is in contact with the scene.
 We will omit the dependency of $\pi_{xy}$ on $s_k$ in the following subsections for convenience.
 
@@ -47,7 +47,23 @@ where $\score_\text{s}$ is the support area score map, $\score_\text{f}$ is the 
 Intuitively, the score $\score_\text{s}$ encourages the object to be placed on a larger support area, the score $\score_\text{f}$ encourages the object to fill the empty floor area, the score $\score_\text{b}$ encourages to fill the boundary of the target shape $\target$ first, and the last score $\score_\text{h}$ encourages the object to be placed at a lower height to improve stability.
 The visualization examples of the score maps are shown in Fig. \ref{fig:score_map} and the details of the score map computation will be described in the appendix.
 
-% We leveraged the upper-surface height map $H_{\scene_k}:\real^2 \to \real$ of the scene $\scene_k$ and the bottom height map $H_{\object_i(R)}:\real^2 \to \real$ of the rotated object $O_i(R):=\{Rp \mid p \in O_i\}$ to compute the proposal score $\score(\planar\mid O_i,R)$.
+\begin{algorithm}[t]
+  \caption{Initial pose sampling}
+  \label{alg:initial_pose_sampling}
+  \begin{algorithmic}[1]
+    \Require State $\state_k=(\scene_k,\inventory_k,\target)$, rotation set $\mathcal{R}$, temperature $\tau$, score weights $\{w_\text{s},w_\text{f},w_\text{b},w_\text{h}\}$
+    \State Sample $i_{k+1}\sim\operatorname{Unif}(\inventory_k)$ and $R\sim\operatorname{Unif}(\mathcal{R})$
+    \State Construct the predefined planar sampling grid $\mathcal{G}$
+    \ForAll{$\planar\in\mathcal{G}$}
+      \State Compute $\score(\planar\mid i_{k+1},R)$ from the score maps
+    \EndFor
+    \State Sample $\planar=(x,y)\sim \pi_{xy}(\planar \mid i_{k+1},R, s_k)$
+    \State Set $z$ from the upper-surface height of $\scene_k$
+    \State \Return $i_{k+1}$ and $\hat{q}_{k+1}=(R,(x,y,z))$
+  \end{algorithmic}
+\end{algorithm}
+
+% We leveraged the upper-surface height map $H_{\scene_k}:\real^2 \to \real$ of the scene $\scene_k$ and the bottom height map $H_{\object_i(R)}:\real^2 \to \real$ of the rotated object $O_i(R):=\{Rp \mid p \in O_i\}$ to compute the proposal score $\score(\planar\mid O_i,R)$. 
 
 % To estimate support, the rotated bottom surface is translated vertically until it clears the sampled scene surface.
 % Bottom samples whose resulting gaps are at most $\epsilon_c$ form the approximate contact region.
@@ -79,12 +95,32 @@ The visualization examples of the score maps are shown in Fig. \ref{fig:score_ma
 % Connectivity is enforced as an admission rule rather than a score term.
 % The score provides geometric guidance; $\poseopt$ subsequently refines the full pose and evaluates force equilibrium.
 
-\subsection{Structural Simulation}
+\subsection{Simulation Module}
 
-After the pose optimization module $\poseopt$ refines the candidate pose $\hat{q}_{k+1}$ to find a locally optimal placement pose $q_{k+1}$, the simulation module $\simul$ acts as a transition function $\state_{k+1} = \transition(\state_{k}, \action_{k})$.
-We need to evaluate whether the new scene $\scene_{k+1} := \scene_k \cup \{(i_{k+1},q_{k+1})\}$ is physically feasible and stable.
-The structural simulation module $\simul$ is responsible for simulating the physical behavior of the stacked objects under the influence of gravity and contact forces.
-For a given scene $\scene_k$ and an action $a_{k+1} = (i_{k+1}, q_{k+1})$, the structural simulation module $\simul$ evaluates whether the new scene $\scene_{k+1} := \scene_k \cup \{(i_{k+1},q_{k+1})\}$ is physically feasible and stable.
-Unlike the previous approaches of Johns et al. \cite{johns2020autonomous}, \cite{johns2023framework} which also use the simulation to validate the stability of individual objects, we simulate the overall scene $\scene_{k+1}$ instead of simulating only the newly placed object $\object_{i_{k+1}}$ to ensure that the entire scene is stable with the GPU-accelerated subADMM algorithm \cite{ji2025gpu} which is a scalable and efficient physics simulation algorithm for large-scale rigid body systems with contact.
+As mentioned in Sec. \ref{sec:overview}, after $\poseopt$ refines the candidate pose $\hat{q}_{k+1}$ to find a locally optimal placement pose $q_{k+1}$, the simulation module $\simul$ acts as a transition function $\state_{k+1} = \transition(\state_{k}, \action_{k})$ which simulates the physical behavior of the scene $\scene_{k+1}$ after placing the object $\object_{i_{k+1}}$ at the placement pose $q_{k+1}$.
+The simulation module $\simul$ works in two steps: first, freezing the objects in the scene $\scene_k$ and simulate the newly placed object $\object_{i_{k+1}}$ to further refine the pose, and second, simulate the entire scene $\scene_{k+1}$ to ensure that the entire scene is stable.
+For both steps, we use the early-termination condition to terminate the simulation if the scene is stable or expected to be unstable, and the simulation statistics are used to evaluate the reward of the action $\action_k$.
+The early-termination condition is based on the mass-normalized kinetic energy $E_{\text{kin},i}$ and the accumulated energy $E_{\text{acc},i}$ of the object $\object_i$ in the scene $\scene_{k+1}$, which are defined as
+\begin{align*}
+    E_{\text{kin},i}(t) = \frac{1}{2m_i}V_i^\top M_i V_i, \quad 
+    E_{\text{acc},i}(t) = \sum_{s=0}^{t} \sqrt{E_{\text{kin}(s),i}} \Delta t
+\end{align*}
+where $V_i \in \real^6$ is the linear and angular velocity of the object $\object_i$, $M_i \in \real^{6\times 6}$ is the mass matrix of the object $\object_i$, $m_i$ is the mass of the object $\object_i$, and $\Delta t$ is the simulation time step.
+Then, the early-termination condition is defined as follows:
+\begin{equation}
+    \begin{split}
+        &E_{\text{kin},i}(t) < \epsilon_\text{kin}\quad \text{for all } i \in \placed_{k+1} \text{ or } \\
+        &E_{\text{acc},i}(t) > \epsilon_\text{acc}\quad \text{ for some } i \in \placed_{k+1}    
+    \end{split}
+    \label{eq:early_termination_condition}
+\end{equation}
+where $\epsilon_\text{kin}, \epsilon_\text{acc} > 0$ are the thresholds for the kinetic energy and the accumulated energy, respectively.
+% The simulation module $\simul$ simulates the entire scene $\scene_{k+1}$ instead of simulating only the newly placed object $\object_{i_{k+1}}$ to ensure that the entire scene is stable with the GPU-accelerated subADMM algorithm \cite{ji2025gpu} which is a scalable and efficient physics simulation algorithm for large-scale rigid body systems with contact.
+
+% We emphasize that, unlike the previous approaches of Johns et al. \cite{johns2020autonomous}, \cite{johns2023framework} which also use the simulation to validate the stability of individual objects, $\simul$ simulate the overall scene $\scene_{k+1}$ instead of simulating only the newly placed object $\object_{i_{k+1}}$ to ensure that the entire scene is stable with the GPU-accelerated subADMM algorithm \cite{ji2025gpu} which is a scalable and efficient physics simulation algorithm for large-scale rigid body systems with contact.
 
 \subsection{Monte Carlo Tree Search for Sequence Planning}
+Equipped with the modules $\initpose$, $\poseopt$, and $\simul$, we now use Monte Carlo Tree Search (MCTS) to explore the space of possible stacking sequences.
+Given the root state $\state_0 = (\scene_0, \inventory_0, \target)$, MCTS iteratively builds a search tree $\tree$ where each node corresponds to a state $\state_k$ and each edge corresponds to an action $\action_k$.
+
+\subsection{Reward Design}
