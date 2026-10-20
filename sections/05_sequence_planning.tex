@@ -17,25 +17,31 @@ In this section, we introduce the remaining modules $\initpose$ and $\simul$ tha
 Then, we present the Monte Carlo Tree Search (MCTS) algorithm that uses these modules to explore the space of possible stacking sequences and find an optimal sequence of object placements.
 
 \subsection{Initial Pose Sampling}
-The initial pose sampler $\initpose(i_{k+1},\hat{q}_{k+1}\mid \state_k)$ generates candidate poses and corresponding object indices $i\in\inventory_k$ from the current state $\state_k = (\scene_k, \inventory_k, \target)$ and the candidate pose $\hat{q}_{k+1}$ is refined by the pose optimization module $\poseopt$.
-The sampler is formulated as the following product of two distributions:
+The initial pose sampler generates a candidate object, orientation, and planar
+translation from the current state $\state_k=(\scene_k,\inventory_k,\target)$.
+Let $\mathcal{G}_{i,R}(\state_k)$ denote the feasible planar sampling grid for
+object $i$ and orientation $R$, and let
+$\hat{q}_{k+1}=(R,(\planar,z_{i,R}(\planar;\state_k)))$.
+The sampler is defined by
 \begin{equation*}
-    \begin{split}
-        \initpose(i_{k+1},\hat{q}_{k+1}\mid \state_k) ={}& \pi_{xy}(\planar\mid i_{k+1},R,s_k) \\
-        &\times \pi_\text{unif}(i_{k+1},R\mid s_k)        
-    \end{split}
+    \begin{aligned}
+        \initpose(i,R,\planar\mid\state_k)
+        &= \pi_{xy}(\planar\mid i,R,\state_k)
+           \pi_\text{unif}(i,R\mid\state_k),\\
+        \pi_{xy}(\planar\mid i,R,\state_k)
+        &\propto
+        \exp\!\left(\score(\planar\mid i,R,\state_k)/\tau\right).
+    \end{aligned}
 \end{equation*}
-where $\pi_\text{unif}(i_{k+1},R\mid s_k)$ is a uniform distribution over $\inventory_k$ and a pre-defined finite rotation set $\mathcal{R}$, and $\pi_{xy}(\planar\mid i_{k+1},R,s_k)$ is a distribution over planar translations $\planar=(x,y)$ given the object $i_{k+1}$ and its orientation $R$.
-The height $z$ of the candidate pose $\hat{q}_{k+1}=(R,t)$ is heuristically determined to be above the scene since $\poseopt$ will refine the candidate pose.
-We will omit the dependency of $\pi_{xy}$ on $s_k$ in the following subsections for convenience.
-
-For the planar translation distribution $\pi_{xy}(\planar\mid i_{k+1},R,s_k)$, we define a proposal score $\score(\planar\mid i_{k+1},R,s_k)$ that approximately estimates the quality of the candidate pose $\hat{q}_{k+1}$ based on the geometric information of the scene $\scene_k$, the target shape $\target$, and the object $i_{k+1}$.
-Then, we define 
-\begin{equation*}
-    \pi_{xy}(\planar\mid i_{k+1},R,s_k) \propto \exp\left(\score(\planar\mid i_{k+1},R,s_k) / \tau\right)
-\end{equation*}
-so that the sampler favors candidate poses with higher proposal scores where $\tau > 0$ is a temperature parameter.
-The proposal score $\score(\planar\mid i_{k+1},R,s_k)$ is formulated as a weighted sum of several geometric features that are computed based on the scene $\scene_k$, the target shape $\target$, and the object $i_{k+1}$:
+where $\pi_\text{unif}(i,R\mid\state_k)$ is uniform over
+$i\in\inventory_k$ and the finite rotation set $\mathcal{R}$.
+The distribution $\pi_{xy}$ is defined over
+$\planar\in\mathcal{G}_{i,R}(\state_k)$, and $\tau>0$ controls the preference
+for higher-scoring planar locations. The initial height $z_{i,R}$ is computed
+from the scene geometry, while the full pose is subsequently refined by the
+pose optimization module $\poseopt$.
+For brevity, the dependence of the score on $\state_k$ is omitted below.
+The proposal score $\score(\planar\mid i_{k+1},R)$ is formulated as a weighted sum of several geometric features that are computed based on the scene $\scene_k$, the target shape $\target$, and the object $i_{k+1}$:
 \begin{equation*}
   \begin{split}
     \score(\planar\mid i_{k+1},R) ={}& w_\text{s}\score_\text{s}(\planar\mid i_{k+1},R)+w_\text{f}\score_\text{f}(\planar\mid i_{k+1},R) \\
@@ -53,11 +59,15 @@ The visualization examples of the score maps are shown in Fig. \ref{fig:score_ma
   \label{alg:initial_pose_sampling}
   \begin{algorithmic}[1]
     \Require State $\state_k=(\scene_k,\inventory_k,\target)$, rotation set $\mathcal{R}$
-    \State Sample $i_{k+1}\sim\operatorname{Unif}(\inventory_k)$ and $R\sim\operatorname{Unif}(\mathcal{R})$
-    \State Compute $\score(\planar\mid i_{k+1},R)$ for all $\planar \in \mathcal{G}$ from the predefined planar sampling grid $\mathcal{G}$
-    \State Sample $\planar=(x,y)\sim \pi_{xy}(\planar \mid i_{k+1},R, s_k)$
-    \State Set $z$ from the upper-surface height of $\scene_k$
-    \State \Return $i_{k+1}$ and $\hat{q}_{k+1}=(R,(x,y,z))$
+    \State Sample $i_{k+1}\sim\operatorname{Unif}(\inventory_k)$ and
+           $R\sim\operatorname{Unif}(\mathcal{R})$
+    \State Construct the feasible planar grid
+           $\mathcal{G}_{i_{k+1},R}(\state_k)$
+    \State Evaluate $\score(\planar\mid i_{k+1},R,\state_k)$ for all
+           $\planar\in\mathcal{G}_{i_{k+1},R}(\state_k)$
+    \State Sample $\planar$ from $\pi_{xy}(\planar\mid i_{k+1},R)$
+    \State Set $\hat{q}_{k+1}=(R,(\planar,z_{i_{k+1},R}(\planar;\state_k)))$
+    \State \Return $(i_{k+1},\hat{q}_{k+1})$
   \end{algorithmic}
 \end{algorithm}
 
