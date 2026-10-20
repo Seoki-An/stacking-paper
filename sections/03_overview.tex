@@ -17,10 +17,10 @@ Suppose that we are given a target shape $\target \subset \real^3$ and $n$ irreg
 The goal is to find optimal placement poses $q_1,\cdots,q_n$ for a set of irregularly shaped objects such that the final configuration approximates the target shape $\target$ while satisfying the stability and non-collision constraints.
 This problem can be formulated as an optimization problem:
 \begin{gather}
-\min_{q_1,\cdots,q_n\in\SE(3)}  \Vol\left(\target\backslash \bigcup_{i=1}^n \object_i(q_i)\right)\quad\text{s.t.} \label{eq:problem_definition}\\
+\min_{q_1,\cdots,q_n\in\SE(3)}  \vol\left(\target\backslash \bigcup_{i=1}^n \object_i(q_i)\right)\quad\text{s.t.} \label{eq:problem_definition}\\
 c_\text{phys}(\object_1(q_1),\cdots,\object_n(q_n)) = 0 \nonumber
 \end{gather}
-where $\Vol(\cdot)$ is the volume of a 3D shape and $c_\text{phys}(\cdot)$ is a function that evaluates the physical feasibility of the configuration, including stability and non-collision constraints.
+where $\vol(\cdot)$ is the volume of a 3D shape and $c_\text{phys}(\cdot)$ is a function that evaluates the physical feasibility of the configuration, including stability and non-collision constraints.
 
 \subsection{Shape Representation}
 Throughout the paper, we use the union of differentiable support function (DSF) to represent the 3D shapes of the target shape $\target$ and the objects $\object_i$, $i \in \inventory_k$, in the inventory.
@@ -41,14 +41,13 @@ Moreover, due to the smoothness of DSFs, the signed distance $\sd(\convex_1(q_1)
 
 \subsection{Markov Decision Process Formulation}
 
-Nevertheless, solving the optimization problem in Eq. \eqref{eq:problem_definition} is extremely challenging due to the high-dimensional search space as the number of the objects $n$ increases.
-In addition, the physical constraints involve complex contact dynamics which makes the problem even more difficult to solve.
+Nevertheless, solving the optimization problem in Eq. \eqref{eq:problem_definition} is extremely challenging due to the high-dimensional search space as the number of the objects $n$ increases and the presence of complex physical constraints that involve non-convex and non-differentiable functions.
 
 To address the problem Eq. \eqref{eq:problem_definition} in a tractable manner, we model the problem as a sequential decision-making process where we place one object at a time.
 Suppose that we have already placed $k$ objects in the scene and denote the set of indices of the placed objects as $\placed_k \subset \{1,\cdots,n\}$.
 Then, the $k$-th scene $\scene_k:=\{(i,q_i)\mid i \in \placed_k \}$ is the collection of object indices and their corresponding placement poses that have been placed in the scene.
 Also, let the $k$-th inventory $\inventory_k := \{1,\cdots, n\} \backslash \placed_k$ be the set of remaining object indices that have not been placed yet.
-Given $(\scene_k,\inventory_k, \target)$, we now need to select an index $i_{k+1} \in \inventory_k$ and find the corresponding placement pose $q_{k+1}$ for the object. The resulting provisional scene is subsequently simulated to determine whether it is physically feasible and how well it approximates the target shape $\target$.
+Given $(\scene_k,\inventory_k, \target)$, we now need to select an index $i_{k+1} \in \inventory_k$ and find the corresponding placement pose $q_{k+1}$ for the object. The resulting scene is subsequently simulated to determine whether it is physically feasible and how well it approximates the target shape $\target$.
 
 The sequential decision-making process can be further modeled as a Markov Decision Process (MDP).
 We define the state space $\mathcal{S}$ as the set of states $\state_k := (\scene_k, \inventory_k, \target)$, the action space $\mathcal{A}$ as the set of actions $\action_k := (i_{k+1}, q_{k+1})$ representing the object index $i_{k+1}$ and its placement pose $q_{k+1}$, the transition function $\transition:\mathcal{S}\times\mathcal{A}\to\mathcal{S}$ that maps a state-action pair to the next state, and the reward function $\reward:\mathcal{S}\times\mathcal{A}\to\real$ that evaluates the improvement in approximating the target shape $\target$ while satisfying the physical constraints.
@@ -60,7 +59,7 @@ Therefore, the transition function $\transition$ can be defined as
     \state_{k+1} = \transition(\state_k, \action_k) = (\scene_{k+1}, \inventory_{k+1}, \target)
 \end{equation*}
 where $\inventory_{k+1} = \inventory_k \backslash \{i_{k+1}\}$.
-Its output statistics can also be used by the reward function, for example to penalize residual motion or instability or even failure. The implementation of this transition and the reward design are described in Sec. \ref{sec:sequence_planning}.
+The implementation of this transition and the reward design are described in Sec. \ref{sec:sequence_planning}.
 Therefore, the MDP can be defined as a tuple:
 \begin{equation*}
     \mdp = (\mathcal{S}, \mathcal{A}, \transition, \reward, \gamma)

@@ -66,7 +66,7 @@ In addition, motivated by homotopy based optimization methods \cite{}, we design
 \begin{figure}[t]
   \centering
   \fbox{
-    \begin{minipage}[c][6cm][c]{0.95\columnwidth}
+    \begin{minipage}[c][4cm][c]{0.95\columnwidth}
       \centering
       Toy example of comparing the overall structural stability of the scene and the local structural stability of the candidate object
     \end{minipage}
@@ -78,8 +78,7 @@ In addition, motivated by homotopy based optimization methods \cite{}, we design
 \subsection{Lower-Level Problem Optimization with ADMM}
 
 For a fixed $q$, the lower-level problem is a convex optimization problem with respect to $\lambda$ which can be efficiently solved.
-Moreover, exploiting the inherent structure of the lower-level problem, we can reformulate it to be separable with respect to the objects $\placed_{k+1}$ in the scene and apply the alternating direction method of multipliers (ADMM)
-\cite{boyd2011distributed} to solve it in a scalable manner.
+Moreover, exploiting the inherent structure of the lower-level problem, we can reformulate it to be separable with respect to the objects $\placed_{k+1}$ in the scene and apply the alternating direction method of multipliers (ADMM) \cite{boyd2011distributed} to solve it in a scalable manner.
 For each contact force $\lambda_j$, we introduce two local copies $\lambda_{j,1}$ and $\lambda_{j,2}$ associated with the two objects in contact.
 Specifically, for $j \in I_{l,m}$ with $l < m$, $\lambda_{j,1}$ and $\lambda_{j,2}$ are associated with $\object_l$ and $\object_m$, respectively.
 We then impose the consensus constraints
@@ -108,8 +107,7 @@ At each ADMM iteration, the objectwise-separable subproblem decomposes into $|\p
 The remaining updates consist of $2n_c$ projections onto the second-order cones $K_j$ and $2n_c$ auxiliary-variable updates, which reduce to averaging.
 The projections can be computed in closed form. The detailed ADMM algorithm for the lower-level problem is provided in the appendix.
 
-We want to emphasize that the force optimization approach considers the overall structural stability of the scene by evaluating the static equilibrium constraints for all objects in the scene, rather than just the candidate object $\object_{i_{k+1}}$.
-Moreover, ADMM allows us to solve the problem in a scalable manner even for large-scale problems by decomposing the problem into independent subproblems for each object in the scene.
+We want to emphasize that the force optimization approach considers the overall structural stability of the scene by evaluating the static equilibrium constraints for all objects in the scene.
 
 % Observe that each $\lambda_j$ acts on two objects $\object_l$ and $\object_m$ such that $j \in I_{l,m}$ for some $l, m \in \placed_{k+1}$ and $l < m$.
 % Then, the contact force $\lambda_j$ can be split into two variables $\lambda_{j,1}$ and $\lambda_{j,2}$ such that $\lambda_{j,1} = \lambda_{j,2}$ where $\lambda_{j,1}$ is the contact force acting on $\object_l$ and $\lambda_{j,2}$ is the contact force acting on $\object_m$.

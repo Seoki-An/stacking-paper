@@ -1,7 +1,7 @@
 \begin{figure}[t]
   \centering
   \fbox{
-    \begin{minipage}[c][6cm][c]{0.95\columnwidth}
+    \begin{minipage}[c][4cm][c]{0.95\columnwidth}
       \centering
       Visualization examples of the score maps of the initial pose sampling module $\initpose$.
     \end{minipage}
@@ -13,7 +13,8 @@
 
 \section{Sequence Planning} \label{sec:sequence_planning}
 
-In this section, we introduce the initial pose sampler $\initpose$ that generates initial poses for the pose optimization module $\poseopt$, the structural simulation module $\simul$ that evaluates the stability of the scene, and the Monte Carlo Tree Search (MCTS) module $\mcts$ for sequence planning.
+In this section, we introduce the remaining modules $\initpose$ and $\simul$ that are used to generate candidate poses and simulate the stability of the scene, respectively.
+Then, we present the Monte Carlo Tree Search (MCTS) algorithm that uses these modules to explore the space of possible stacking sequences and find an optimal sequence of object placements.
 
 \subsection{Initial Pose Sampling}
 The initial pose sampler $\initpose(i_{k+1},\hat{q}_{k+1}\mid \state_k)$ generates candidate poses and corresponding object indices $i\in\inventory_k$ from the current state $\state_k = (\scene_k, \inventory_k, \target)$ and the candidate pose $\hat{q}_{k+1}$ is refined by the pose optimization module $\poseopt$.
@@ -25,7 +26,7 @@ The sampler is formulated as the following product of two distributions:
     \end{split}
 \end{equation*}
 where $\pi_\text{unif}(i_{k+1},R\mid s_k)$ is a uniform distribution over $\inventory_k$ and a pre-defined finite rotation set $\mathcal{R}$, and $\pi_{xy}(\planar\mid i_{k+1},R,s_k)$ is a distribution over planar translations $\planar=(x,y)$ given the object $i_{k+1}$ and its orientation $R$.
-The height $z$ of the candidate pose $\hat{q}_{k+1}=(R,t)$ is heuristically determined by the scene's upper-surface so that the object is placed above the scene since the pose optimization module $\poseopt$ will refine the candidate pose to find a stable placement pose $q_{k+1}$ that is in contact with the scene.
+The height $z$ of the candidate pose $\hat{q}_{k+1}=(R,t)$ is heuristically determined to be above the scene since $\poseopt$ will refine the candidate pose.
 We will omit the dependency of $\pi_{xy}$ on $s_k$ in the following subsections for convenience.
 
 For the planar translation distribution $\pi_{xy}(\planar\mid i_{k+1},R,s_k)$, we define a proposal score $\score(\planar\mid i_{k+1},R,s_k)$ that approximately estimates the quality of the candidate pose $\hat{q}_{k+1}$ based on the geometric information of the scene $\scene_k$, the target shape $\target$, and the object $i_{k+1}$.
@@ -51,12 +52,9 @@ The visualization examples of the score maps are shown in Fig. \ref{fig:score_ma
   \caption{Initial pose sampling}
   \label{alg:initial_pose_sampling}
   \begin{algorithmic}[1]
-    \Require State $\state_k=(\scene_k,\inventory_k,\target)$, rotation set $\mathcal{R}$, temperature $\tau$, score weights $\{w_\text{s},w_\text{f},w_\text{b},w_\text{h}\}$
+    \Require State $\state_k=(\scene_k,\inventory_k,\target)$, rotation set $\mathcal{R}$
     \State Sample $i_{k+1}\sim\operatorname{Unif}(\inventory_k)$ and $R\sim\operatorname{Unif}(\mathcal{R})$
-    \State Construct the predefined planar sampling grid $\mathcal{G}$
-    \ForAll{$\planar\in\mathcal{G}$}
-      \State Compute $\score(\planar\mid i_{k+1},R)$ from the score maps
-    \EndFor
+    \State Compute $\score(\planar\mid i_{k+1},R)$ for all $\planar \in \mathcal{G}$ from the predefined planar sampling grid $\mathcal{G}$
     \State Sample $\planar=(x,y)\sim \pi_{xy}(\planar \mid i_{k+1},R, s_k)$
     \State Set $z$ from the upper-surface height of $\scene_k$
     \State \Return $i_{k+1}$ and $\hat{q}_{k+1}=(R,(x,y,z))$
@@ -102,10 +100,10 @@ The simulation module $\simul$ works in two steps: first, freezing the objects i
 For both steps, we use the early-termination condition to terminate the simulation if the scene is stable or expected to be unstable, and the simulation statistics are used to evaluate the reward of the action $\action_k$.
 The early-termination condition is based on the mass-normalized kinetic energy $E_{\text{kin},i}$ and the accumulated energy $E_{\text{acc},i}$ of the object $\object_i$ in the scene $\scene_{k+1}$, which are defined as
 \begin{align*}
-    E_{\text{kin},i}(t) = \frac{1}{2m_i}V_i^\top M_i V_i, \quad 
+    E_{\text{kin},i}(t) = \frac{1}{2m_i}\mathcal{V}_i^\top M_i \mathcal{V}_i, \quad 
     E_{\text{acc},i}(t) = \sum_{s=0}^{t} \sqrt{E_{\text{kin}(s),i}} \Delta t
 \end{align*}
-where $V_i \in \real^6$ is the linear and angular velocity of the object $\object_i$, $M_i \in \real^{6\times 6}$ is the mass matrix of the object $\object_i$, $m_i$ is the mass of the object $\object_i$, and $\Delta t$ is the simulation time step.
+where $\mathcal{V}_i \in \real^6$ is the linear and angular velocity of the object $\object_i$, $M_i \in \real^{6\times 6}$ is the mass matrix of the object $\object_i$, $m_i$ is the mass of the object $\object_i$, and $\Delta t$ is the simulation time step.
 Then, the early-termination condition is defined as follows:
 \begin{equation}
     \begin{split}
@@ -115,12 +113,28 @@ Then, the early-termination condition is defined as follows:
     \label{eq:early_termination_condition}
 \end{equation}
 where $\epsilon_\text{kin}, \epsilon_\text{acc} > 0$ are the thresholds for the kinetic energy and the accumulated energy, respectively.
-% The simulation module $\simul$ simulates the entire scene $\scene_{k+1}$ instead of simulating only the newly placed object $\object_{i_{k+1}}$ to ensure that the entire scene is stable with the GPU-accelerated subADMM algorithm \cite{ji2025gpu} which is a scalable and efficient physics simulation algorithm for large-scale rigid body systems with contact.
 
-% We emphasize that, unlike the previous approaches of Johns et al. \cite{johns2020autonomous}, \cite{johns2023framework} which also use the simulation to validate the stability of individual objects, $\simul$ simulate the overall scene $\scene_{k+1}$ instead of simulating only the newly placed object $\object_{i_{k+1}}$ to ensure that the entire scene is stable with the GPU-accelerated subADMM algorithm \cite{ji2025gpu} which is a scalable and efficient physics simulation algorithm for large-scale rigid body systems with contact.
-
-\subsection{Monte Carlo Tree Search for Sequence Planning}
-Equipped with the modules $\initpose$, $\poseopt$, and $\simul$, we now use Monte Carlo Tree Search (MCTS) to explore the space of possible stacking sequences.
-Given the root state $\state_0 = (\scene_0, \inventory_0, \target)$, MCTS iteratively builds a search tree $\tree$ where each node corresponds to a state $\state_k$ and each edge corresponds to an action $\action_k$.
+The simulation module is implemented using the GPU-accelerated subADMM algorithm \cite{ji2025gpu} which is a scalable and efficient physics simulation algorithm for large-scale rigid body systems with contact.
+% We emphasize that, unlike the previous approaches of Johns et al. \cite{johns2020autonomous}, \cite{johns2023framework} which also use the simulation to validate the stability of individual objects, $\simul$ also simulate the overall scene $\scene_{k+1}$ instead of simulating only the newly placed object $\object_{i_{k+1}}$ to ensure that the entire scene is stable.
 
 \subsection{Reward Design}
+
+The reward function is designed to encourage the agent to place objects in a way that maximizes the filled volume of the target shape $\target$ while ensuring the stability of the scene and formulated as follows:
+\begin{equation*}
+    \begin{split}
+        r(\state_k, \action_k) 
+        ={}& w_\target\frac{\vol\left(\overline{\scene}_{k+1}\right) - \vol\left(\overline{\scene}_k\right)}{\vol(\target)} + w_\object\frac{\vol\left(O_{i_{k+1}}\cap\target\right)}{\vol\left(O_{i_{k+1}}\right)} \\
+        &- w_H\left(\max_{\planar}H_{\scene_{k+1}}(\planar) - \mathbb{E}_{\planar}[H_{\scene_{k+1}}(\planar)]\right) \\
+        & - w_D\mathbb{E}_{\mathcal{V}\sim\mathcal{N}(0,\Sigma)}\left[\delta q_{k+1}(\mathcal{V})\right]- w_S f_\text{eq}
+    \end{split}
+    \label{eq:reward_function}
+\end{equation*}
+where $w_\target, w_\object, w_H, w_S, w_D > 0$ are the weight parameters for each reward term and $\overline{\scene}_k := T \cap\bigcup_{i\in\placed_k} O_i(q_i)$ is the intersection of the target shape $\target$ and the union of the placed objects in the scene $\scene_k$.
+The first term and the second term encourage the agent to place objects that fill the target shape $\target$ and maximize the filled volume of the target shape $\target$, respectively.
+The third term penalizes the height difference between the maximum height and the average height of the scene $\scene_{k+1}$ to encourage a more uniform distribution of objects in the scene.
+The fourth term penalizes the expected pose deviation $\delta q_{k+1}(\mathcal{V})$ of the newly placed object $\object_{i_{k+1}}$ under random perturbations $\mathcal{V}$ sampled from a Gaussian distribution $\mathcal{N}(0,\Sigma)$ to encourage the agent to place objects in a more stable manner.
+The last term penalizes the violation of the static equilibrium constraints $f_\text{eq}$ from $\poseopt$ to encourage the agent to place objects in a physically feasible manner.
+
+\subsection{Monte Carlo Tree Search for Sequence Planning}
+Equipped with the modules $\initpose$, $\poseopt$, $\simul$ and the MDP $\mathcal{M}$, we now use Monte Carlo Tree Search (MCTS) to explore the space of possible stacking sequences.
+Given the root state $\state_0 = (\scene_0, \inventory_0, \target)$, MCTS iteratively builds a search tree $\tree$ where each node corresponds to a state $\state_k$ and each edge corresponds to an action $\action_k$.
