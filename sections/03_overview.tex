@@ -10,7 +10,7 @@
   \label{fig:overview}
 \end{figure}
 
-\section{Overview} \label{sec:overview}
+\section{Overview and Preliminaries} \label{sec:overview}
 
 \subsection{Stacking as an Optimization Problem}
 Suppose that we are given a target shape $\target \subset \real^3$ and $n$ irregular shaped objects $\object_1(q_1),\object_2(q_2),\cdots,\object_n(q_n) \subset \real^3$ where each $q_i \in \SE(3)$ represents the pose of each object $\object_i$ in the world frame.
@@ -43,28 +43,53 @@ Moreover, due to the smoothness of DSFs, the signed distance $\sd(\convex_1(q_1)
 
 Nevertheless, solving the optimization problem in Eq. \eqref{eq:problem_definition} is extremely challenging due to the high-dimensional search space as the number of the objects $n$ increases and the presence of complex physical constraints that involve non-convex and non-differentiable functions.
 
-To address the problem Eq. \eqref{eq:problem_definition} in a tractable manner, we model the problem as a sequential decision-making process where we place one object at a time.
-Suppose that we have already placed $k$ objects in the scene and denote the set of indices of the placed objects as $\placed_k \subset \{1,\cdots,n\}$.
-Then, the $k$-th scene $\scene_k:=\{(i,q_i)\mid i \in \placed_k \}$ is the collection of object indices and their corresponding placement poses that have been placed in the scene.
-Also, let the $k$-th inventory $\inventory_k := \{1,\cdots, n\} \backslash \placed_k$ be the set of remaining object indices that have not been placed yet.
-Given $(\scene_k,\inventory_k, \target)$, we now need to select an index $i_{k+1} \in \inventory_k$ and find the corresponding placement pose $q_{k+1}$ for the object. The resulting scene is subsequently simulated to determine whether it is physically feasible and how well it approximates the target shape $\target$.
-
-The sequential decision-making process can be further modeled as a Markov Decision Process (MDP).
-We define the state space $\mathcal{S}$ as the set of states $\state_k := (\scene_k, \inventory_k, \target)$, the action space $\mathcal{A}$ as the set of actions $\action_k := (i_{k+1}, q_{k+1})$ representing the object index $i_{k+1}$ and its placement pose $q_{k+1}$, the transition function $\transition:\mathcal{S}\times\mathcal{A}\to\mathcal{S}$ that maps a state-action pair to the next state, and the reward function $\reward:\mathcal{S}\times\mathcal{A}\to\real$ that evaluates the improvement in approximating the target shape $\target$ while satisfying the physical constraints.
-
-More specifically, the pose $q_{k+1}$ in an action is first inserted into the current scene to form a provisional scene $\tilde{\scene}_{k+1} := \scene_k \cup \{ (i_{k+1},q_{k+1}) \}$.
-Then, the transition operator evaluates the physical simulation of the provisional scene under gravity and contact dynamics and returns a settled scene $\scene_{k+1}$. 
-Therefore, the transition function $\transition$ can be defined as
+We model the construction as a finite-horizon sequential decision process in
+which one object is placed at each step. Let
+$\scene_k=\{(i,q_i)\mid i\in\placed_k\}$ be the current scene and
+$\inventory_k=\{1,\ldots,n\}\setminus\placed_k$ the remaining inventory. The
+state, action, and transition are
 \begin{equation*}
-    \state_{k+1} = \transition(\state_k, \action_k) = (\scene_{k+1}, \inventory_{k+1}, \target)
+    \state_k=(\scene_k,\inventory_k,\target),\quad
+    \action_k=(i_{k+1},q_{k+1}),\quad
+    \state_{k+1}=\transition(\state_k,\action_k),
 \end{equation*}
-where $\inventory_{k+1} = \inventory_k \backslash \{i_{k+1}\}$.
-The implementation of this transition and the reward design are described in Sec. \ref{sec:sequence_planning}.
-Therefore, the MDP can be defined as a tuple:
-\begin{equation*}
-    \mdp = (\mathcal{S}, \mathcal{A}, \transition, \reward, \gamma)
-\end{equation*}
-where $\gamma \in [0,1]$ is the discount factor that determines the importance of future rewards.
+where $i_{k+1}\in\inventory_k$. The transition inserts the proposed pose into
+the scene, simulates the resulting structure, and returns the settled scene
+with $\inventory_{k+1}=\inventory_k\setminus\{i_{k+1}\}$. The reward
+$\reward(\state_k,\action_k)$ measures construction progress and physical
+validity; its implementation is described in Sec.~\ref{sec:sequence_planning}.
+The sequence planner therefore operates on the MDP
+$\mdp=(\mathcal{S},\mathcal{A},\transition,\reward,\gamma)$.
+
+\subsection{Monte Carlo Tree Search}
+
+Monte Carlo Tree Search (MCTS) incrementally constructs a search tree
+$\tree=(\nodes,\edges)$ over the MDP. Each node $\node\in\nodes$ represents a
+state $\state(\node)\in\mathcal{S}$, and each edge
+$(\node,a)\in\edges$ represents an action $a\in\mathcal{A}$ and its transition
+to a child node. For a node or edge, let $\visit(\node)$ denote the number of
+completed evaluations and let $Q(\node)$ denote the sum of discounted
+returns accumulated at that node. The corresponding empirical value is
+$Q(\node)/\visit(\node)$ when $\visit(\node)>0$. An action prior
+$P(\node,a)$ can provide additional guidance when the action space is large or
+continuous.
+
+Each MCTS iteration consists of four conceptual operations. During
+\emph{selection}, the tree policy chooses a promising child by balancing its
+empirical value and an exploration bonus. During \emph{expansion}, a new
+action is generated and attached to the selected node. During
+\emph{evaluation}, the transition associated with the action is evaluated to
+obtain a reward and a successor state. Finally, during \emph{backup}, the
+discounted return is propagated through the selected path to update
+$Q(\node)$ and $\visit(\node)$. A nonterminal leaf may additionally be assigned a
+leaf-value estimate $\hat V(\state)$, typically obtained from rollout
+simulation or a problem-specific heuristic.
+
+In the present problem, an action is a placement of one remaining object,
+and its evaluation includes pose refinement and physical simulation. The
+geometry-informed proposals, batched selection, and finite-horizon leaf
+evaluation used to adapt MCTS to this expensive continuous-action setting are
+described in Sec.~\ref{sec:sequence_planning}.
 
 \subsection{Overall Structure of the Sequence Planner}
 The overall structure of the sequence planner is illustrated in Fig. \ref{fig:overview}. 

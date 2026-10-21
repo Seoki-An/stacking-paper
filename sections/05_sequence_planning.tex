@@ -107,6 +107,7 @@ The visualization examples of the score maps are shown in Fig. \ref{fig:score_ma
 
 As mentioned in Sec. \ref{sec:overview}, after $\poseopt$ refines the candidate pose $\hat{q}_{k+1}$ to find a locally optimal placement pose $q_{k+1}$, the simulation module $\simul$ acts as a transition function $\state_{k+1} = \transition(\state_{k}, \action_{k})$ which simulates the physical behavior of the scene $\scene_{k+1}$ after placing the object $\object_{i_{k+1}}$ at the placement pose $q_{k+1}$.
 The simulation module $\simul$ works in two steps: first, freezing the objects in the scene $\scene_k$ and simulate the newly placed object $\object_{i_{k+1}}$ to further refine the pose, and second, simulate the entire scene $\scene_{k+1}$ to ensure that the entire scene is stable.
+
 For both steps, we use the early-termination condition to terminate the simulation if the scene is stable or expected to be unstable, and the simulation statistics are used to evaluate the reward of the action $\action_k$.
 The early-termination condition is based on the mass-normalized kinetic energy $E_{\text{kin},i}$ and the accumulated energy $E_{\text{acc},i}$ of the object $\object_i$ in the scene $\scene_{k+1}$, which are defined as
 \begin{align*}
@@ -122,9 +123,9 @@ Then, the early-termination condition is defined as follows:
     \end{split}
     \label{eq:early_termination_condition}
 \end{equation}
-where $\epsilon_\text{kin}, \epsilon_\text{acc} > 0$ are the thresholds for the kinetic energy and the accumulated energy, respectively.
+with the thresholds $\epsilon_\text{kin}, \epsilon_\text{acc} > 0$.
 
-The simulation module is implemented using the GPU-accelerated subADMM algorithm \cite{ji2025gpu} which is a scalable and efficient physics simulation algorithm for large-scale rigid body systems with contact.
+The simulation module is implemented in CUDA using the GPU-accelerated subADMM algorithm \cite{ji2025gpu} which is a scalable and efficient physics simulation algorithm for large-scale rigid body systems with contact.
 % We emphasize that, unlike the previous approaches of Johns et al. \cite{johns2020autonomous}, \cite{johns2023framework} which also use the simulation to validate the stability of individual objects, $\simul$ also simulate the overall scene $\scene_{k+1}$ instead of simulating only the newly placed object $\object_{i_{k+1}}$ to ensure that the entire scene is stable.
 
 \subsection{Reward Design}
@@ -135,16 +136,81 @@ The reward function is designed to encourage the agent to place objects in a way
         r(\state_k, \action_k) 
         ={}& w_\target\frac{\vol\left(\overline{\scene}_{k+1}\right) - \vol\left(\overline{\scene}_k\right)}{\vol(\target)} + w_\object\frac{\vol\left(O_{i_{k+1}}\cap\target\right)}{\vol\left(O_{i_{k+1}}\right)} \\
         &- w_H\left(\max_{\planar}H_{\scene_{k+1}}(\planar) - \mathbb{E}_{\planar}[H_{\scene_{k+1}}(\planar)]\right) \\
-        & - w_D\mathbb{E}_{\mathcal{V}\sim\mathcal{N}(0,\Sigma)}\left[\delta q_{k+1}(\mathcal{V})\right]- w_S f_\text{eq}
+        & - w_D\mathbb{E}_{\mathcal{V}\sim\mathcal{N}(0,\Sigma)}\left[\Delta q_{k+1}(\mathcal{V})\right]- w_S f_\text{eq}
     \end{split}
     \label{eq:reward_function}
 \end{equation*}
 where $w_\target, w_\object, w_H, w_S, w_D > 0$ are the weight parameters for each reward term and $\overline{\scene}_k := T \cap\bigcup_{i\in\placed_k} O_i(q_i)$ is the intersection of the target shape $\target$ and the union of the placed objects in the scene $\scene_k$.
 The first term and the second term encourage the agent to place objects that fill the target shape $\target$ and maximize the filled volume of the target shape $\target$, respectively.
 The third term penalizes the height difference between the maximum height and the average height of the scene $\scene_{k+1}$ to encourage a more uniform distribution of objects in the scene.
-The fourth term penalizes the expected pose deviation $\delta q_{k+1}(\mathcal{V})$ of the newly placed object $\object_{i_{k+1}}$ under random perturbations $\mathcal{V}$ sampled from a Gaussian distribution $\mathcal{N}(0,\Sigma)$ to encourage the agent to place objects in a more stable manner.
+The fourth term penalizes the expected pose deviation $\Delta q_{k+1}(\mathcal{V})$ of the newly placed object $\object_{i_{k+1}}$ under random perturbations $\mathcal{V}$ sampled from a Gaussian distribution $\mathcal{N}(0,\Sigma)$ to encourage the agent to place objects in a more stable manner.
 The last term penalizes the violation of the static equilibrium constraints $f_\text{eq}$ from $\poseopt$ to encourage the agent to place objects in a physically feasible manner.
 
-\subsection{Monte Carlo Tree Search for Sequence Planning}
-Equipped with the modules $\initpose$, $\poseopt$, $\simul$ and the MDP $\mathcal{M}$, we now use Monte Carlo Tree Search (MCTS) to explore the space of possible stacking sequences.
-Given the root state $\state_0 = (\scene_0, \inventory_0, \target)$, MCTS iteratively builds a search tree $\tree$ where each node corresponds to a state $\state_k$ and each edge corresponds to an action $\action_k$.
+\subsection{Monte Carlo Tree Search}
+Equipped with the modules $\initpose$, $\poseopt$, $\simul$ and the MDP $\mathcal{M}$, we use Monte Carlo Tree Search (MCTS) to explore possible stacking sequences. 
+
+
+% Given the root state
+% $\state_0=(\emptyset,\inventory_0,\target)$, MCTS builds a search tree $\tree$
+% whose nodes represent states and whose edges represent placement actions.
+% Our batched search is inspired by the parallel Monte Carlo tree search with
+% batched rigid-body simulation proposed in \cite{huang2022pmbs}. In contrast to
+% that method, we generate geometry-informed placement actions and refine them
+% with $\poseopt$ before physical evaluation.
+
+% At the root, we generate a population of candidate actions using $\initpose$
+% and $\poseopt$. Promising candidates are locally refined by perturbing their
+% planar positions and orientations, while fresh proposals are retained for
+% exploration. Each candidate is evaluated by $\simul$, which produces the next
+% state and transition reward. During subsequent search, selected actions are
+% evaluated in batches through pose optimization and physical simulation. The
+% temporary reservations used for batched selection do not modify persistent
+% tree statistics:
+% \begin{equation*}
+%     \ucp(s_t^j,a_t^j) =
+%     \frac{Q(s_t^j,a_t^j)}{\visit(s_t^j,a_t^j)+\tmpvisit(s_t^j,a_t^j)}
+%     +cP_j
+%     \frac{\sqrt{\visit(s_t^j)+\tmpvisit(s_t^j)}}{1+\visit(s_t^j,a_t^j)+\tmpvisit(s_t^j,a_t^j)},
+% \end{equation*}
+% where $Q_j$ and $\visit_j$ are the accumulated return and completed visit count of child $j$, $\visit_j^\text{temp}$ is the number of virtual visits temporarily reserved for child
+% $j$ in the current batch, $P_j$ is its prior probability, and $p$ denotes its
+% parent. Virtual visits are used only during batched selection and are discarded
+% after the batch is evaluated; they do not modify the persistent tree
+% statistics. Progressive widening limits the number of selectable children as
+% the number of completed visits increases. The
+% geometry- and equilibrium-informed action prior is converted to $P_j$ by a
+% softmax over sibling actions. Evaluated rewards are backed up along the
+% selected paths.
+
+% Unlike conventional MCTS, we do not perform additional simulation rollouts
+% from a leaf node. Every tree transition already requires pose optimization and
+% physics-based evaluation, so rollout actions would substantially increase the
+% cost of search in the continuous pose space. Instead, we use a truncated
+% finite-horizon search. Let $H$ be the maximum search depth and let
+% $\state_d$ be a nonterminal leaf at depth $d$. Its remaining value is
+% estimated by
+% \begin{equation*}
+%     \hat{V}(\state_d)
+%     =
+%     \bar{r}\sum_{j=0}^{h_d-1}\gamma^j,
+%     \qquad
+%     h_d=\min\{H-d,\lvert\inventory(\state_d)\rvert\},
+% \end{equation*}
+% where $\bar{r}$ is a heuristic mean transition reward estimated from evaluated
+% placements. Thus, the estimator accounts for the remaining construction
+% horizon without introducing additional rollout simulations. Terminal and
+% failed leaves do not receive this bootstrap value.
+
+% After the search budget is exhausted, root actions are ranked using both their
+% mean backed-up return and the return of a physically validated continuation:
+% \begin{equation*}
+%     a^*=\argmax_{a\in\mathcal{A}_{\mathrm{val}}(\state)}
+%     \left[(1-\lambda)\overline{Q}(\state,a)
+%     +\lambda G_{\mathrm{val}}(\state,a)\right],
+% \end{equation*}
+% where $\mathcal{A}_{\mathrm{val}}(\state)$ contains physically validated root
+% actions with an available validated continuation, $\overline{Q}$ is the mean
+% backed-up return, and $G_{\mathrm{val}}$ is the discounted return along that
+% continuation, including the immediate placement. Only the selected immediate
+% placement is executed; its subtree may be reused as the root for the next
+% planning step.
