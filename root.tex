@@ -57,7 +57,7 @@
 \newcommand{\state}{s}
 \newcommand{\action}{a}
 \newcommand{\reward}{r}
-\newcommand{\transition}{p}
+\newcommand{\transition}{F}
 \newcommand{\mdp}{\mathcal{M}}
 \newcommand{\terminal}{\mathrm{terminal}}
 
@@ -67,19 +67,21 @@
 \newcommand{\visit}{N}
 \newcommand{\node}{n}
 \newcommand{\tmpvisit}{\hat{N}}
-\newcommand{\ucp}{\operatorname{UCP}}
+\newcommand{\puct}{\operatorname{PUCT}}
+\newcommand{\depth}{d}
+\newcommand{\batch}{\mathcal{B}}
 
 \newcommand{\planar}{\mathbf{x}}
 \newcommand{\score}{\sigma}
 
-\newcommand{\vol}{\operatorname{v}}
+\newcommand{\vol}{\mathbb{V}}
 \newcommand{\sd}{\operatorname{d}}
 \DeclareMathOperator*{\argmax}{arg\,max}
 \DeclareMathOperator*{\argmin}{arg\,min}
 
 \newcommand{\initpose}{\pi_\text{init}}
 \newcommand{\poseopt}{\pi_\text{opt}}
-\newcommand{\simul}{\pi_\text{simul}}
+\newcommand{\simul}{\pi_\text{sim}}
 \newcommand{\mcts}{\pi_\text{mcts}}
 
 
@@ -265,4 +267,3 @@ This paper presents a novel approach for automated stacking of irregularly shape
 \bibliography{references}
 
 \end{document}
-

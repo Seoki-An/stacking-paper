@@ -90,10 +90,7 @@ The lower-level problem can therefore be reformulated as
   \lambda_{j,1} = \lambda_{j,2} = z_{j,1} = z_{j,2},
   \qquad j = 1,\ldots,n_c.
 \end{IEEEeqnarray*}
-where $\tilde{f}_\text{phys}(q,\tilde{\lambda})$ is the extended physical force function and $\delta_{K_j}$ is the indicator function of the second-order cone
-\begin{equation*}
-  K_j := \{\lambda \in \real^3 \mid g_{\text{cone},j}(q,\lambda) \leq 0\}.  
-\end{equation*}
+where $\tilde{f}_\text{phys}(q,\tilde{\lambda})$ is the extended physical force function and $\delta_{K_j}$ is the indicator function of the second-order cone $K_j := \{\lambda \in \real^3 \mid g_{\text{cone},j}(q,\lambda) \leq 0\}$.
 Here, $z_{j,s}$ is an auxiliary variable associated with the $j$-th contact point and $s \in \{1,2\}$.
 At each ADMM iteration, the objectwise-separable subproblem decomposes into $|\placed_{k+1}|$ independent subproblems, one for each object $\object_l$.
 The remaining updates consist of $2n_c$ projections onto the second-order cones $K_j$ which can be computed in closed form, and $2n_c$ auxiliary-variable updates, which reduce to averaging.

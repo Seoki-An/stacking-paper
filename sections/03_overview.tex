@@ -47,7 +47,7 @@ We model the construction as a finite-horizon sequential decision process in
 which one object is placed at each step. Let
 $\scene_k=\{(i,q_i)\mid i\in\placed_k\}$ be the current scene and
 $\inventory_k=\{1,\ldots,n\}\setminus\placed_k$ the remaining inventory. The
-state, action, and transition are
+state, action, and deterministic transition function are
 \begin{equation*}
     \state_k=(\scene_k,\inventory_k,\target),\quad
     \action_k=(i_{k+1},q_{k+1}),\quad
@@ -68,11 +68,10 @@ $\tree=(\nodes,\edges)$ over the MDP. Each node $\node\in\nodes$ represents a
 state $\state(\node)\in\mathcal{S}$, and each edge
 $(\node,a)\in\edges$ represents an action $a\in\mathcal{A}$ and its transition
 to a child node. For a node or edge, let $\visit(\node)$ denote the number of
-completed evaluations and let $Q(\node)$ denote the sum of discounted
-returns accumulated at that node. The corresponding empirical value is
-$Q(\node)/\visit(\node)$ when $\visit(\node)>0$. An action prior
-$P(\node,a)$ can provide additional guidance when the action space is large or
-continuous.
+completed evaluations and let $Q(\node)$ denote the empirical mean of the
+discounted returns backed up to that node. An action prior
+$P(\node,a)$, distinct from the transition function $\transition$,
+can provide additional guidance when the action space is large or continuous.
 
 Each MCTS iteration consists of four conceptual operations. During
 \emph{selection}, the tree policy chooses a promising child by balancing its
