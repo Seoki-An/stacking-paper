@@ -1,1 +1,20 @@
 \section{Related Works} \label{sec:related_works}
+
+\subsection{Automated Stone Stacking}
+Furrer et al.~\cite{furrer2017stacking} combined gradient-based pose search with physics simulation for stone stacking.
+Johns et al.~\cite{johns2020autonomous} integrated perception, placement planning, and excavator manipulation for wall construction, later combining constrained registration and signed-distance-field classification to plan prescribed wall geometries~\cite{johns2023framework}.
+Liu et al.~\cite{liu2021drystacking} selected simulation-generated poses using hierarchical filters informed by masonry heuristics.
+Liu and Napp~\cite{liu2023stability} incorporated structural strength evaluation into sequence planning and validated simulated predictions through physical wall tests.
+Their subsequent work introduced stackability measures for stone selection in corbelled shelter construction~\cite{liu2025clochain}.
+Menezes et al.~\cite{menezes2021rocks} learned placement value maps from elevation maps using deep Q-learning, with rewards accounting for target occupancy and object displacement.
+Their policy selects planar positions for a prescribed object sequence with fixed orientations; its observed construction strategies inform our initial pose sampler.
+
+\subsection{Irregular Object Packing}
+Wang and Hauser~\cite{wang2022binpacking} used heightmap minimization to pack nonconvex objects while considering stability and robot motion feasibility, with conservative planning and replanning to address execution errors.
+Huang et al.~\cite{huang2023binpacking} jointly planned object order and placement through hierarchical reinforcement learning using multi-view heightmaps and rewards for compactness, pyramidality, and simulated stability.
+Such geometric guidance is relevant to generating initial placement candidates before continuous pose refinement.
+
+\subsection{Simulation-Based Sequential Manipulation Planning}
+King et al.~\cite{king2017unobservable} extended MCTS to nonprehensile rearrangement under uncertainty using learned and heuristic rollout policies.
+Huang et al.~\cite{huang2022pmbs} introduced Parallel Monte Carlo Tree Search with Batched Simulations (PMBS), coupling parallel search with GPU rigid-body simulation for object retrieval from clutter.
+Our stacking planner adopts batched evaluation, combining geometric sampling, equilibrium-aware pose refinement, and structural simulation at each expansion.

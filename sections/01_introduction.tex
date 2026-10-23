@@ -1,16 +1,57 @@
 \section{Introduction} \label{sec:introduction}
 
-Automating the process of stacking objects has long been studied in the context of packing and warehousing systems.
-Our contributions are as follows:
+Automated packing and palletizing have long been studied to improve space utilization and material handling in logistics and manufacturing~\cite{dowsland1990palletloading}.
+Recent robotic packing methods accommodate irregular objects while considering packing density, stability, and placement feasibility~\cite{wang2022binpacking,huang2023binpacking}.
+Constructing freestanding structures from natural stones requires finding mutually supporting arrangements among uneven surfaces while achieving a prescribed target shape without support from container walls.
+
+Several stone-stacking methods use placement criteria developed for particular construction settings, including tower-building objectives~\cite{furrer2017stacking} and masonry-inspired geometric rules~\cite{johns2020autonomous,liu2021drystacking}.
+For example, Johns et al.'s double-faced wall planner generates candidates along the intersection of the target wall surfaces and the existing structure, and applies inward-slope heuristics tailored to wall construction~\cite{johns2020autonomous}.
+The ability to construct freeform walls~\cite{johns2023framework} demonstrates flexibility in wall geometry, while extending beyond such construction settings motivates planning driven by target geometry without wall-specific placement rules.
+Structural stability also requires reasoning beyond the support of the newly placed object: its load can affect the equilibrium of objects beneath it.
+Liu and Napp~\cite{liu2023stability} explicitly address structural strength during planning, demonstrating the value of evaluating the structure as a whole.
+However, assessing the current structure alone does not determine how a placement affects future support and space utilization.
+Menezes et al.~\cite{menezes2021rocks} address sequential placement through learned action values that account for future rewards, with a prescribed object sequence and fixed orientations.
+We investigate explicit lookahead over object choices and placement poses, coupled with structural equilibrium evaluation and target-shape objectives.
+
+We consider stacking a finite inventory of $n$ irregular objects to approximate a target region $\target\subset\real^3$.
+Let $\object_i(q_i)\subset\real^3$ denote the volume occupied by object $i$ at pose $q_i\in\SE(3)$.
+The final configuration objective is
+\begin{gather}
+\min_{q_1,\cdots,q_n\in\SE(3)} \vol\left(\target\backslash\bigcup_{i=1}^{n}\object_i(q_i)\right)\quad\text{s.t.} \label{eq:problem_definition}\\
+c_\text{phys}(\object_1(q_1),\cdots,\object_n(q_n))=0, \nonumber
+\end{gather}
+where $\vol(\cdot)$ denotes volume and $c_\text{phys}=0$ represents stability and non-interpenetration constraints.
+Jointly optimizing all object poses under coupled physical constraints is computationally demanding.
+To obtain a practical planning procedure, we decompose construction into sequential decisions, selecting one object and optimizing its placement at each step while checking the resulting structure's physical feasibility.
+This decomposition reduces the dimension of each pose optimization, but each placement changes the support geometry, free space, and remaining inventory.
+Multi-step lookahead allows the planner to evaluate these future consequences beyond immediate placement quality.
+Our central question is how to combine this lookahead with structural equilibrium evaluation in a common framework for different target shapes.
+
+\begin{figure}[t]
+  \centering
+  \fbox{
+    \begin{minipage}[c][5cm][c]{0.95\columnwidth}
+      \centering
+      Preliminary result
+    \end{minipage}
+  }
+  \caption{Preliminary result.}
+  \label{fig:preliminary_result}
+\end{figure}
+
+We address this question with a framework coupling bilevel pose optimization and Monte Carlo Tree Search (MCTS).
+The pose optimizer refines geometric proposals using target-shape objectives and a physical objective that evaluates force and torque equilibrium across the structure under friction constraints.
+The target enters through its geometric representation, allowing the same optimization formulation to be applied to different target shapes.
+A bodywise ADMM decomposition enables parallel solution of the contact-force subproblem.
+The sequence planner embeds pose refinement and physical simulation in batched, receding-horizon MCTS, following prior work on batched simulation-based search~\cite{huang2022pmbs}.
+Simulation supplies settled successor states and rejects unstable placements, while multi-step lookahead compares their effects on subsequent construction.
+
+We hypothesize that combining structural equilibrium evaluation with multi-step lookahead improves target coverage while maintaining stability across different target geometries under a fixed planning budget.
+Comparisons with greedy placement and candidate-only equilibrium evaluation will test the effects of lookahead and structural coupling, respectively.
+Evaluations across target shapes and search horizons will examine the applicability of the common formulation and its computational tradeoffs.
+The proposed contributions are:
 \begin{itemize}
-  \item 
+  \item A bilevel placement optimizer that combines explicit target geometry with contact-force optimization across the structure, using bodywise ADMM updates for GPU computation.
+  \item A batched, receding-horizon stacking planner that integrates pose refinement and physical simulation with multi-step lookahead over object choices and placement poses.
 \end{itemize}
 
-The rest of the paper is organized as follows.
-Sec. \ref{sec:related_works}
-Sec. \ref{sec:overview}
-Sec. \ref{sec:pose_optimization}
-Sec. \ref{sec:sequence_planning}
-% Sec. \ref{sec:implementation}
-% Sec. \ref{sec:experiments}
-% Sec. \ref{sec:conclusion}

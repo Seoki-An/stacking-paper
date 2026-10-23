@@ -12,16 +12,6 @@
 
 \section{Overview and Preliminaries} \label{sec:overview}
 
-\subsection{Stacking as an Optimization Problem}
-Suppose that we are given a target shape $\target \subset \real^3$ and $n$ irregular shaped objects $\object_1(q_1),\object_2(q_2),\cdots,\object_n(q_n) \subset \real^3$ where each $q_i \in \SE(3)$ represents the pose of each object $\object_i$ in the world frame.
-The goal is to find optimal placement poses $q_1,\cdots,q_n$ for a set of irregularly shaped objects such that the final configuration approximates the target shape $\target$ while satisfying the stability and non-collision constraints.
-This problem can be formulated as an optimization problem:
-\begin{gather}
-\min_{q_1,\cdots,q_n\in\SE(3)}  \vol\left(\target\backslash \bigcup_{i=1}^n \object_i(q_i)\right)\quad\text{s.t.} \label{eq:problem_definition}\\
-c_\text{phys}(\object_1(q_1),\cdots,\object_n(q_n)) = 0 \nonumber
-\end{gather}
-where $\vol(\cdot)$ is the volume of a 3D shape and $c_\text{phys}(\cdot)$ is a function that evaluates the physical feasibility of the configuration, including stability and non-collision constraints.
-
 \subsection{Shape Representation}
 Throughout the paper, we use the union of differentiable support function (DSF) to represent the 3D shapes of the target shape $\target$ and the objects $\object_i$, $i \in \inventory_k$, in the inventory.
 Given a compact convex body $\convex \subset \real^3$, the support function $\dsf_\convex :\real^3 \backslash\{0\} \to \real$ is defined as
@@ -41,58 +31,41 @@ Moreover, due to the smoothness of DSFs, the signed distance $\sd(\convex_1(q_1)
 
 \subsection{Markov Decision Process Formulation}
 
-Nevertheless, solving the optimization problem in Eq. \eqref{eq:problem_definition} is extremely challenging due to the high-dimensional search space as the number of the objects $n$ increases and the presence of complex physical constraints that involve non-convex and non-differentiable functions.
-
-We model the construction as a finite-horizon sequential decision process in
-which one object is placed at each step. Let
-$\scene_k=\{(i,q_i)\mid i\in\placed_k\}$ be the current scene and
-$\inventory_k=\{1,\ldots,n\}\setminus\placed_k$ the remaining inventory. The
-state, action, and deterministic transition function are
+To address the construction objective in Eq.~\eqref{eq:problem_definition}, we model stacking as a finite-horizon sequential decision process in which one object is placed at each step. 
+Let $\scene_k=\{(i,q_i)\mid i\in\placed_k\}$ be the current scene and $\inventory_k=\{1,\ldots,n\}\setminus\placed_k$ the remaining inventory. 
+The state, action, and deterministic transition function are
 \begin{equation*}
     \state_k=(\scene_k,\inventory_k,\target),\quad
     \action_k=(i_{k+1},q_{k+1}),\quad
     \state_{k+1}=\transition(\state_k,\action_k),
 \end{equation*}
-where $i_{k+1}\in\inventory_k$. The transition inserts the proposed pose into
-the scene, simulates the resulting structure, and returns the settled scene
-with $\inventory_{k+1}=\inventory_k\setminus\{i_{k+1}\}$. The reward
-$\reward(\state_k,\action_k)$ measures construction progress and physical
-validity; its implementation is described in Sec.~\ref{sec:sequence_planning}.
-The sequence planner therefore operates on the MDP
-$\mdp=(\mathcal{S},\mathcal{A},\transition,\reward,\gamma)$.
+where $i_{k+1}\in\inventory_k$. The transition inserts the proposed pose into the scene, simulates the resulting structure, and returns the settled scene with $\inventory_{k+1}=\inventory_k\setminus\{i_{k+1}\}$. 
+The reward $\reward(\state_k,\action_k)$ measures construction progress and physical validity; its implementation is described in Sec.~\ref{sec:sequence_planning}.
+The sequence planner therefore operates on the MDP $\mdp=(\mathcal{S},\mathcal{A},\transition,\reward,\gamma)$.
 
 \subsection{Monte Carlo Tree Search}
 
-Monte Carlo Tree Search (MCTS) incrementally constructs a search tree
-$\tree=(\nodes,\edges)$ over the MDP. Each node $\node\in\nodes$ represents a
-state $\state(\node)\in\mathcal{S}$, and each edge
-$(\node,a)\in\edges$ represents an action $a\in\mathcal{A}$ and its transition
-to a child node. For a node or edge, let $\visit(\node)$ denote the number of
-completed evaluations and let $Q(\node)$ denote the empirical mean of the
-discounted returns backed up to that node. An action prior
-$P(\node,a)$, distinct from the transition function $\transition$,
-can provide additional guidance when the action space is large or continuous.
+Monte Carlo Tree Search (MCTS) incrementally constructs a search tree $\tree=(\nodes,\edges)$ over the MDP. 
+Each node $\node\in\nodes$ represents a state $\state(\node)\in\mathcal{S}$, and each edge $(\node,a)\in\edges$ represents an action $a\in\mathcal{A}$ and its transition to a child node. 
+For a node or edge, let $\visit(\node)$ denote the number of completed evaluations and let $Q(\node)$ denote the empirical mean of the discounted returns backed up to that node. 
+An action prior $P(\node,a)$, distinct from the transition function $\transition$, can provide additional guidance when the action space is large or continuous.
 
-Each MCTS iteration consists of four conceptual operations. During
-\emph{selection}, the tree policy chooses a promising child by balancing its
-empirical value and an exploration bonus. During \emph{expansion}, a new
-action is generated and attached to the selected node. During
-\emph{evaluation}, the transition associated with the action is evaluated to
-obtain a reward and a successor state. Finally, during \emph{backup}, the
-discounted return is propagated through the selected path to update
-$Q(\node)$ and $\visit(\node)$. A nonterminal leaf may additionally be assigned a
-leaf-value estimate $\hat V(\state)$, typically obtained from rollout
-simulation or a problem-specific heuristic.
+Each MCTS iteration consists of four conceptual operations. During \emph{selection}, the tree policy chooses a promising child by balancing its empirical value and an exploration bonus. 
+During \emph{expansion}, a new action is generated and attached to the selected node. 
+During \emph{evaluation}, the transition associated with the action is evaluated to obtain a reward and a successor state. 
+Finally, during \emph{backup}, the discounted return is propagated through the selected path to update $Q(\node)$ and $\visit(\node)$. 
+A nonterminal leaf may additionally be assigned a leaf-value estimate $\hat V(\state)$, typically obtained from rollout simulation or a problem-specific heuristic.
 
-In the present problem, an action is a placement of one remaining object,
-and its evaluation includes pose refinement and physical simulation. The
-geometry-informed proposals, batched selection, and finite-horizon leaf
-evaluation used to adapt MCTS to this expensive continuous-action setting are
-described in Sec.~\ref{sec:sequence_planning}.
+In the present problem, an action is a placement of one remaining object, and its evaluation includes pose refinement and physical simulation. 
+The geometry-informed proposals, batched selection, and finite-horizon leaf evaluation used to adapt MCTS to this expensive continuous-action setting are described in Sec.~\ref{sec:sequence_planning}.
 
 \subsection{Overall Structure of the Sequence Planner}
+
 The overall structure of the sequence planner is illustrated in Fig. \ref{fig:overview}. 
-The sequence planner uses Monte Carlo Tree Search (MCTS) to explore the space of possible stacking sequences. For each expansion, it first uses the initial pose sampler $\initpose$ to generate a candidate pose $\hat{q}_{k+1}$, and then uses the pose optimization module $\poseopt$ to refine it into a locally optimal pose $q_{k+1}$. The structural simulation module $\simul$ subsequently implements the physical transition by evaluating the entire provisional scene and producing the settled next state. The resulting validity and simulation statistics are used to determine whether the action is admitted to the search tree and to evaluate its reward.
+The sequence planner uses Monte Carlo Tree Search (MCTS) to explore the space of possible stacking sequences. 
+For each expansion, it first uses the initial pose sampler $\initpose$ to generate a candidate pose $\hat{q}_{k+1}$, and then uses the pose optimization module $\poseopt$ to refine it into a locally optimal pose $q_{k+1}$. 
+The structural simulation module $\simul$ subsequently implements the physical transition by evaluating the entire provisional scene and producing the settled next state. 
+The resulting validity and simulation statistics are used to determine whether the action is admitted to the search tree and to evaluate its reward.
 
 This gives the following execution flow:
 \begin{equation*}

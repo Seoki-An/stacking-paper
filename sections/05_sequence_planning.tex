@@ -17,12 +17,7 @@ In this section, we introduce the remaining modules $\initpose$ and $\simul$ tha
 Then, we present the Monte Carlo Tree Search (MCTS) algorithm that uses these modules to explore the space of possible stacking sequences and find an optimal sequence of object placements.
 
 \subsection{Initial Pose Sampling}
-The initial pose sampler generates a candidate object, orientation, and planar
-translation from the current state $\state_k=(\scene_k,\inventory_k,\target)$.
-Let $\mathcal{G}_{i,R}(\state_k)$ denote the feasible planar sampling grid for
-object $i$ and orientation $R$, and let
-$\hat{q}_{k+1}=(R,(\planar,z_{i,R}(\planar;\state_k)))$.
-The sampler is defined by
+The sampler proposes an object $i$, orientation $R$, and planar location $\planar$ on a feasible grid $\mathcal{G}_{i,R}(\state_k)$ according to
 \begin{equation*}
     \begin{aligned}
         \initpose(i,R,\planar\mid\state_k)
@@ -33,15 +28,9 @@ The sampler is defined by
         \exp\!\left(\score(\planar\mid i,R,\state_k)/\tau\right).
     \end{aligned}
 \end{equation*}
-where $\pi_\text{unif}(i,R\mid\state_k)$ is uniform over
-$i\in\inventory_k$ and the finite rotation set $\mathcal{R}$.
-The distribution $\pi_{xy}$ is defined over
-$\planar\in\mathcal{G}_{i,R}(\state_k)$, and $\tau>0$ controls the preference
-for higher-scoring planar locations. The initial height $z_{i,R}$ is computed
-from the scene geometry, while the full pose is subsequently refined by the
-pose optimization module $\poseopt$.
-For brevity, the dependence of the score on $\state_k$ is omitted below.
-The proposal score $\score(\planar\mid i_{k+1},R)$ is formulated as a weighted sum of several geometric features that are computed based on the scene $\scene_k$, the target shape $\target$, and the object $i_{k+1}$:
+where $\pi_\text{unif}$ is uniform over the remaining objects
+$i\in\inventory_k$ and finite rotation set $\mathcal{R}$, and $\tau>0$ controls the preference for high scores. Scene geometry determines the initial height $z_{i,R}$, yielding
+$\hat q_{k+1}=(R,(\planar,z_{i,R}(\planar;\state_k)))$ for refinement by $\poseopt$. Omitting the state dependence, the proposal score is
 \begin{equation*}
   \begin{split}
     \score(\planar\mid i_{k+1},R) ={}& w_\text{s}\score_\text{s}(\planar\mid i_{k+1},R)+w_\text{f}\score_\text{f}(\planar\mid i_{k+1},R) \\
@@ -49,27 +38,27 @@ The proposal score $\score(\planar\mid i_{k+1},R)$ is formulated as a weighted s
   \end{split}
 %   \label{eq:initial_pose_score}
 \end{equation*}
-where $\score_\text{s}$ is the support area score map, $\score_\text{f}$ is the filled floor area score map, $\score_\text{b}$ is the boundary proximity score map, and $\score_\text{h}$ is the height score map, respectively with weight parameters $w_\text{h}$, $w_\text{s}$, $w_\text{f}, w_\text{b} > 0$.
+with positive weights. The support score $\score_\text{s}$ favors larger support areas, $\score_\text{f}$ rewards filling empty floor area, $\score_\text{b}$ favors the target boundary, and $\score_\text{h}$ penalizes height. The floor and boundary terms are inspired by the dense first-course packing and boundary-first behavior observed by Menezes et al.~\cite{menezes2021rocks}; the height penalty follows the low-placement preference of their geometric baseline.
+We use these preferences to sample initial poses for continuous refinement.
+Figure~\ref{fig:score_map} illustrates these score maps; their computation is deferred to the appendix.
 
-Intuitively, the score $\score_\text{s}$ encourages the object to be placed on a larger support area, the score $\score_\text{f}$ encourages the object to fill the empty floor area, the score $\score_\text{b}$ encourages to fill the boundary of the target shape $\target$ first, and the last score $\score_\text{h}$ encourages the object to be placed at a lower height to improve stability.
-The visualization examples of the score maps are shown in Fig. \ref{fig:score_map} and the details of the score map computation will be described in the appendix.
-
-\begin{algorithm}[t]
-  \caption{Initial pose sampling $\initpose(\state_k)$}
-  \label{alg:initial_pose_sampling}
-  \begin{algorithmic}[1]
-    \Require State $\state_k=(\scene_k,\inventory_k,\target)$, rotation set $\mathcal{R}$
-    \State Sample $i_{k+1}\sim\operatorname{Unif}(\inventory_k)$ and
-           $R\sim\operatorname{Unif}(\mathcal{R})$
-    \State Construct the feasible planar grid
-           $\mathcal{G}_{i_{k+1},R}(\state_k)$
-    \State Evaluate $\score(\planar\mid i_{k+1},R,\state_k)$ for all
-           $\planar\in\mathcal{G}_{i_{k+1},R}(\state_k)$
-    \State Sample $\planar$ from $\pi_{xy}(\planar\mid i_{k+1},R)$
-    \State Set $\hat{q}_{k+1}=(R,(\planar,z_{i_{k+1},R}(\planar;\state_k)))$
-    \State \Return $(i_{k+1},\hat{q}_{k+1})$
-  \end{algorithmic}
-\end{algorithm}
+% Sampling pseudocode retained for the appendix.
+% \begin{algorithm}[t]
+%   \caption{Initial pose sampling $\initpose(\state_k)$}
+%   \label{alg:initial_pose_sampling}
+%   \begin{algorithmic}[1]
+%     \Require State $\state_k=(\scene_k,\inventory_k,\target)$, rotation set $\mathcal{R}$
+%     \State Sample $i_{k+1}\sim\operatorname{Unif}(\inventory_k)$ and
+%            $R\sim\operatorname{Unif}(\mathcal{R})$
+%     \State Construct the feasible planar grid
+%            $\mathcal{G}_{i_{k+1},R}(\state_k)$
+%     \State Evaluate $\score(\planar\mid i_{k+1},R,\state_k)$ for all
+%            $\planar\in\mathcal{G}_{i_{k+1},R}(\state_k)$
+%     \State Sample $\planar$ from $\pi_{xy}(\planar\mid i_{k+1},R)$
+%     \State Set $\hat{q}_{k+1}=(R,(\planar,z_{i_{k+1},R}(\planar;\state_k)))$
+%     \State \Return $(i_{k+1},\hat{q}_{k+1})$
+%   \end{algorithmic}
+% \end{algorithm}
 
 \subsection{Simulation Module}
 
@@ -100,7 +89,7 @@ We implement $\simul$ in CUDA using the GPU-accelerated subADMM algorithm
 
 \subsection{Reward Design}
 
-The reward function is designed to encourage the agent to place objects in a way that maximizes the filled volume of the target shape $\target$ while ensuring the stability of the scene and formulated as follows:
+The reward balances target coverage, object containment, surface uniformity, and physical stability:
 \begin{equation*}
     \begin{split}
         r(\state_k, \action_k) 
@@ -110,20 +99,14 @@ The reward function is designed to encourage the agent to place objects in a way
     \end{split}
     \label{eq:reward_function}
 \end{equation*}
-where $w_\target, w_\object, w_H, w_S, w_D > 0$ are the weight parameters for each reward term, $\overline{\scene}_k := T \cap\bigcup_{i\in\placed_k} O_i(q_i)$ is the intersection of the target shape $\target$ and the union of the placed objects in the scene $\scene_k$, and $H_{\scene_{k+1}}(\planar)$ is the uppper surface height of the scene $\scene_{k+1}$ at planar location $\planar = (x,y)$.
-The first term and the second term encourage the agent to place objects that fill the target shape $\target$ and maximize the filled volume of the target shape $\target$, respectively.
-The third term penalizes the height difference between the maximum height and the average height of the scene $\scene_{k+1}$ to encourage a more uniform distribution of objects in the scene.
-The fourth term penalizes the expected pose deviation $\Delta q_{k+1}(\mathcal{V})$ of the newly placed object $\object_{i_{k+1}}$ under random perturbations $\mathcal{V}$ sampled from a Gaussian distribution $\mathcal{N}(0,\Sigma)$ to encourage the agent to place objects in a more stable manner.
-The last term penalizes the violation of the static equilibrium constraints $f_\text{eq}$ from $\poseopt$ to encourage the agent to place objects in a physically feasible manner.
+where all weights are positive,
+$\overline{\scene}_k:=\target\cap\bigcup_{i\in\placed_k}\object_i(q_i)$ is the occupied target region, and $H_{\scene_{k+1}}(\planar)$ is the upper surface height at $\planar=(x,y)$. 
+The first two terms reward newly filled target volume and the fraction of the candidate contained in the target, respectively. 
+The remaining terms penalize surface height variation, the candidate's expected pose deviation $\Delta q_{k+1}(\mathcal V)$ under Gaussian perturbations $\mathcal V\sim\mathcal N(0,\Sigma)$, and the equilibrium residual $f_\text{eq}$ from $\poseopt$.
 
 \subsection{Monte Carlo Tree Search}
-We combine $\initpose$, $\poseopt$, and $\simul$ in a batched,
-receding-horizon MCTS planner over the MDP defined in
-Sec.~\ref{sec:overview}. To amortize expensive pose optimization and
-simulation, we evaluate candidate placements in parallel, following
-the batched planning approach of~\cite{huang2022pmbs}.
-Algorithm~\ref{alg:mcts} summarizes the finite-horizon search and execution
-procedure, starting from a tree rooted at the current state $\state_k$.
+We combine $\initpose$, $\poseopt$, and $\simul$ in a batched, receding-horizon MCTS planner over the MDP defined in Sec.~\ref{sec:overview}. To amortize expensive pose optimization and simulation, we evaluate candidate placements in parallel, following the batched planning approach of~\cite{huang2022pmbs}.
+Algorithm~\ref{alg:mcts} summarizes the finite-horizon search and execution procedure, starting from a tree rooted at the current state $\state_k$.
 
 \begin{algorithm}[t]
     \caption{Batched receding-horizon MCTS for sequence planning}

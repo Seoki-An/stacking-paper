@@ -1,5 +1,6 @@
 \documentclass[conference]{IEEEtran}
 \usepackage{times}
+\usepackage{graphicx}
 
 % numbers option provides compact numerical references in the text. 
 \usepackage[numbers]{natbib}
@@ -136,14 +137,19 @@
 \maketitle
 
 \begin{abstract}
-This paper presents a novel approach for automated stacking of irregularly shaped objects. The proposed method combines Monte Carlo Tree Search (MCTS) with optimization techniques to achieve stable and efficient stacking configurations.
-
+Building freestanding structures from irregular objects requires reasoning about both contact stability and the effects of each placement on subsequent construction.
+We study automated stacking from a finite inventory of objects to approximate a prescribed target shape without support from container walls.
+We propose a planning framework that combines bilevel pose optimization with Monte Carlo Tree Search (MCTS).
+The pose optimizer refines geometric placement proposals by coupling target-shape and collision objectives with contact-force optimization that evaluates force and torque equilibrium across the provisional structure under friction constraints.
+A bodywise decomposition of the force subproblem enables parallel computation on the GPU.
+Physical simulation evaluates candidate placements and produces settled successor states for a batched, receding-horizon MCTS planner, which searches over object choices and placement poses.
+This formulation connects continuous placement refinement with the consequences of multiple successive placements.
+We hypothesize that combining structural equilibrium evaluation with multi-step search improves target coverage while maintaining stability under a fixed planning budget.
 \end{abstract}
 
 \IEEEpeerreviewmaketitle
  
 \input{sections/01_introduction.tex}
-\clearpage
 \input{sections/02_related_works.tex}
 \input{sections/03_overview.tex}
 \input{sections/04_pose_optimization.tex}
