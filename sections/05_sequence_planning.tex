@@ -118,7 +118,7 @@ Algorithm~\ref{alg:mcts} summarizes the finite-horizon search and execution proc
         \While{the search budget remains}
             \State $\batch\gets\texttt{SELECTBATCH}(\tree,B)$
             \State $\mathcal{E}\gets\texttt{EVALUATEBATCH}(\batch,\initpose,\poseopt,\simul)$
-            \State $\tree\gets\texttt{BACKUP}(\tree,\batch,\mathcal{E})$
+            \State $\tree\gets\texttt{BACKPROPAGATE}(\tree,\batch,\mathcal{E})$
         \EndWhile
         \State $\action^*\gets\argmax_{\action\in\mathcal{A}_{\mathrm{val}}(\state_k)} Q(\node_{\action})$
         \State Execute $\action^*$ and obtain $\state_{k+1}$
@@ -149,10 +149,10 @@ All paths are selected before physical evaluation begins.
 Each selected expansion applies $\initpose$, $\poseopt$, and $\simul$ to
 generate, refine, and physically evaluate a candidate placement.
 These evaluations run in parallel and provide settled successor states,
-validity outcomes, and rewards for tree expansion and backup. Root candidates
+validity outcomes, and rewards for tree expansion and backpropagation. Root candidates
 are evaluated through the same pipeline.
 
-\noindent \textbf{Leaf Value Estimation and Backup.}
+\noindent \textbf{Leaf Value Estimation and Backpropagation.}
 To avoid further optimization and simulation costs, we replace additional
 rollouts with a heuristic estimate of the remaining return. For a nonterminal
 leaf $\state_l$ at depth $\depth_l$ from the current root, we use
@@ -164,7 +164,7 @@ leaf $\state_l$ at depth $\depth_l$ from the current root, we use
 where $\depth_M$ is the maximum search depth, $\inventory(\state_l)$ is the
 remaining inventory, and $\bar r$ is the mean reward estimated from evaluated
 placements. Terminal and failed leaves receive no bootstrap value.
-Discounted placement rewards and the leaf estimate are backed up along each
+Discounted placement rewards and the leaf estimate are backpropagated along each
 selected path to update mean returns $Q$ and visit counts $\visit$.
 Temporary virtual visits are then removed.
 
@@ -184,7 +184,7 @@ state. Planning then repeats with a finite lookahead horizon.
 % themselves contribute samples to Q or N.
 % TODO: Specify prior normalization, the unvisited-child convention, and the
 % progressive-widening rule including pending expansion requests.
-% Backup starts with G_l = hat V(s_l), or zero for a terminal leaf, and uses
+% Backpropagation starts with G_l = hat V(s_l), or zero for a terminal leaf, and uses
 % G_t = r(s_t,a_t) + gamma G_{t+1}. The child reached by a_t receives G_t,
 % including the incoming action's reward; Q is updated as an empirical mean.
 % TODO: Specify the evaluations used to estimate bar r, the failure return,

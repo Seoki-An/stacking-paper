@@ -1,33 +1,17 @@
-\begin{figure}[t]
-  \centering
-  \fbox{
-    \begin{minipage}[c][6cm][c]{0.95\columnwidth}
-      \centering
-      Overview
-    \end{minipage}
-  }
-  \caption{Overview.}
-  \label{fig:overview}
-\end{figure}
+\input{figures/overview.tex}
 
 \section{Overview and Preliminaries} \label{sec:overview}
 
 \subsection{Shape Representation}
-Throughout the paper, we use the union of differentiable support function (DSF) to represent the 3D shapes of the target shape $\target$ and the objects $\object_i$, $i \in \inventory_k$, in the inventory.
-Given a compact convex body $\convex \subset \real^3$, the support function $\dsf_\convex :\real^3 \backslash\{0\} \to \real$ is defined as
+We represent the target $\target$ and each object $\object_i$ as unions of smooth convex bodies modeled by differentiable support functions (DSFs)~\cite{lee2023uncertain}.
+For a compact convex body $\convex\subset\real^3$, its support function is $\dsf_\convex(x)=\max_{p\in\convex}x^\top p$ for $x\ne0$.
+At pose $q=(R,t)\in\SE(3)$, we write
 \begin{equation*}
-    \dsf_\convex(x) = \max_{s \in \convex} x\cdot s
+    \convex(q)=\{Rp+t\mid p\in\convex\},
+    \qquad \object_i(q_i)=\bigcup_j\convex_{ij}(q_i),
 \end{equation*}
-where $\cdot$ denotes the standard inner product in $\real^3$.
-The work of Lee et al. \cite{lee2023uncertain} presented a differentiable version of the support function $\dsf_\convex$ that represents a smooth shape $\convex$.
-
-The function $\dsf_{\convex}(x)$ can be easily extended through rigid-body transformation as follows:
-\begin{equation*}
-    \dsf_{\bar{\convex}(q)}(x) = \dsf_\convex(R^\top x) + t \cdot x
-\end{equation*}
-for $q := (R,t) \in \SE(3)$ where $\bar{\convex}(q)=\{Rp + t\mid p \in \convex\}$ denotes a transformed $\convex$ under rigid-body transformation.
-Given two DSF represented convex bodies $\convex_1(q_1)$ and $\convex_2(q_2)$ with SE(3) poses $q_1,q_2$, the signed distance $\sd(\convex_1(q_1), \convex_2(q_2))$ between the two convex bodies can be easily computed using Riemannian optimization techniques associated with $\dsf_{\convex_1(q_1)}$ and $\dsf_{\convex_2(q_2)}$ as presented in An, et al. \cite{an2024riemannianmtd}.
-Moreover, due to the smoothness of DSFs, the signed distance $\sd(\convex_1(q_1), \convex_2(q_2))$ and the other contact information (e.g., normal vectors and contact points) are differentiable with respect to $q_1$ and $q_2$, which allows us to use gradient-based optimization techniques.
+where $\convex_{ij}$ are the convex components in object $i$'s local frame.
+DSFs support differentiable signed-distance and contact-geometry computations between posed convex bodies~\cite{an2024riemannianmtd}, enabling gradient-based pose optimization.
 
 \subsection{Markov Decision Process Formulation}
 
@@ -47,13 +31,13 @@ The sequence planner therefore operates on the MDP $\mdp=(\mathcal{S},\mathcal{A
 
 Monte Carlo Tree Search (MCTS) incrementally constructs a search tree $\tree=(\nodes,\edges)$ over the MDP. 
 Each node $\node\in\nodes$ represents a state $\state(\node)\in\mathcal{S}$, and each edge $(\node,a)\in\edges$ represents an action $a\in\mathcal{A}$ and its transition to a child node. 
-For a node or edge, let $\visit(\node)$ denote the number of completed evaluations and let $Q(\node)$ denote the empirical mean of the discounted returns backed up to that node. 
+For a node or edge, let $\visit(\node)$ denote the number of completed evaluations and let $Q(\node)$ denote the empirical mean of the discounted returns backpropagated to that node. 
 An action prior $P(\node,a)$, distinct from the transition function $\transition$, can provide additional guidance when the action space is large or continuous.
 
 Each MCTS iteration consists of four conceptual operations. During \emph{selection}, the tree policy chooses a promising child by balancing its empirical value and an exploration bonus. 
 During \emph{expansion}, a new action is generated and attached to the selected node. 
 During \emph{evaluation}, the transition associated with the action is evaluated to obtain a reward and a successor state. 
-Finally, during \emph{backup}, the discounted return is propagated through the selected path to update $Q(\node)$ and $\visit(\node)$. 
+Finally, during \emph{backpropagation}, the discounted return is propagated through the selected path to update $Q(\node)$ and $\visit(\node)$. 
 A nonterminal leaf may additionally be assigned a leaf-value estimate $\hat V(\state)$, typically obtained from rollout simulation or a problem-specific heuristic.
 
 In the present problem, an action is a placement of one remaining object, and its evaluation includes pose refinement and physical simulation. 
@@ -63,7 +47,8 @@ The geometry-informed proposals, batched selection, and finite-horizon leaf eval
 
 The overall structure of the sequence planner is illustrated in Fig. \ref{fig:overview}. 
 The sequence planner uses Monte Carlo Tree Search (MCTS) to explore the space of possible stacking sequences. 
-For each expansion, it first uses the initial pose sampler $\initpose$ to generate a candidate pose $\hat{q}_{k+1}$, and then uses the pose optimization module $\poseopt$ to refine it into a locally optimal pose $q_{k+1}$. 
+For each expansion, the initial pose sampler $\initpose$ proposes a candidate action $\hat{\action}_k=(i_{k+1},\hat{q}_{k+1})$, specifying both the object index and its initial pose.
+The pose optimization module $\poseopt$ refines the pose component to obtain $\action_k=(i_{k+1},q_{k+1})$.
 The structural simulation module $\simul$ subsequently implements the physical transition by evaluating the entire provisional scene and producing the settled next state. 
 The resulting validity and simulation statistics are used to determine whether the action is admitted to the search tree and to evaluate its reward.
 
@@ -71,9 +56,9 @@ This gives the following execution flow:
 \begin{equation*}
 \state_k
 \xrightarrow{\ \initpose\ }
-\hat{q}_{k+1}
+\hat{\action}_k
 \xrightarrow{\ \poseopt\ }
-q_{k+1}
+\action_k
 \xrightarrow{\ \simul\ }
 \state_{k+1},\ \reward(\state_k,\action_k).
 \end{equation*}

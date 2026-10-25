@@ -137,14 +137,11 @@
 \maketitle
 
 \begin{abstract}
-Building freestanding structures from irregular objects requires reasoning about both contact stability and the effects of each placement on subsequent construction.
-We study automated stacking from a finite inventory of objects to approximate a prescribed target shape without support from container walls.
-We propose a planning framework that combines bilevel pose optimization with Monte Carlo Tree Search (MCTS).
-The pose optimizer refines geometric placement proposals by coupling target-shape and collision objectives with contact-force optimization that evaluates force and torque equilibrium across the provisional structure under friction constraints.
-A bodywise decomposition of the force subproblem enables parallel computation on the GPU.
-Physical simulation evaluates candidate placements and produces settled successor states for a batched, receding-horizon MCTS planner, which searches over object choices and placement poses.
-This formulation connects continuous placement refinement with the consequences of multiple successive placements.
-We hypothesize that combining structural equilibrium evaluation with multi-step search improves target coverage while maintaining stability under a fixed planning budget.
+We study automated stacking of irregular objects to approximate prescribed target shapes without support from container walls.
+Our framework combines bilevel pose optimization with batched, receding-horizon Monte Carlo Tree Search (MCTS) over object choices and placement poses.
+The optimizer couples geometric objectives with contact-force optimization to evaluate force and torque equilibrium across the structure under friction constraints, using a bodywise decomposition for GPU parallelization.
+Physical simulation validates placements and supplies settled successor states for multi-step search.
+We hypothesize that combining structural equilibrium evaluation with lookahead improves target coverage while maintaining stability under a fixed planning budget.
 \end{abstract}
 
 \IEEEpeerreviewmaketitle

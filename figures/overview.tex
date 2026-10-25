@@ -1,0 +1,6 @@
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/overview.eps}
+  \caption{Batched MCTS sequence planning. Colors identify expansion requests $b_j$ and their tree paths. Requests are evaluated in parallel through $\initpose$, $\poseopt$, and $\simul$, and returns are backpropagated along the selected paths. Search repeats within the budget before selecting a physically validated root action $\action_k^*$.}
+  \label{fig:overview}
+\end{figure*}
