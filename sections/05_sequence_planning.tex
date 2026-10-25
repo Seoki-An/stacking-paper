@@ -13,8 +13,7 @@
 
 \section{Sequence Planning} \label{sec:sequence_planning}
 
-In this section, we introduce the remaining modules $\initpose$ and $\simul$ that are used to generate candidate poses and simulate the stability of the scene, respectively.
-Then, we present the Monte Carlo Tree Search (MCTS) algorithm that uses these modules to explore the space of possible stacking sequences and find an optimal sequence of object placements.
+In this section, we describe initial pose sampling, structural simulation, and reward design, followed by their integration into batched MCTS.
 
 \subsection{Initial Pose Sampling}
 The sampler proposes an object $i$, orientation $R$, and planar location $\planar$ on a feasible grid $\mathcal{G}_{i,R}(\state_k)$ according to
@@ -100,7 +99,7 @@ The reward balances target coverage, object containment, surface uniformity, and
     \label{eq:reward_function}
 \end{equation*}
 where all weights are positive,
-$\overline{\scene}_k:=\target\cap\bigcup_{i\in\placed_k}\object_i(q_i)$ is the occupied target region, and $H_{\scene_{k+1}}(\planar)$ is the upper surface height at $\planar=(x,y)$. 
+$\overline{\scene}_k:=\target\cap\bigcup_{i\in\placed_k}\object_i(q_i)$ is the occupied portion of the target shape, and $H_{\scene_{k+1}}(\planar)$ is the upper surface height at $\planar=(x,y)$. 
 The first two terms reward newly filled target volume and the fraction of the candidate contained in the target, respectively. 
 The remaining terms penalize surface height variation, the candidate's expected pose deviation $\Delta q_{k+1}(\mathcal V)$ under Gaussian perturbations $\mathcal V\sim\mathcal N(0,\Sigma)$, and the equilibrium residual $f_\text{eq}$ from $\poseopt$.
 
@@ -140,7 +139,8 @@ reached from $\node_p$ by action $a$, selection maximizes
     \label{eq:puct}
 \end{equation}
 where $Q$ is the mean return, $\visit$ and $\tmpvisit$ are completed and
-temporary virtual visit counts, $P$ is the action prior, and $c>0$ controls
+temporary virtual visit counts, $P(\node_p,a)$ is the action prior at the parent
+(distinct from the transition function $\transition$), and $c>0$ controls
 exploration. Progressive widening allows more children as completed visits
 increase, while virtual visits diversify selection within each batch.
 All paths are selected before physical evaluation begins.

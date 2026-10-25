@@ -29,30 +29,25 @@ The sequence planner therefore operates on the MDP $\mdp=(\mathcal{S},\mathcal{A
 
 \subsection{Monte Carlo Tree Search}
 
-Monte Carlo Tree Search (MCTS) incrementally constructs a search tree $\tree=(\nodes,\edges)$ over the MDP. 
-Each node $\node\in\nodes$ represents a state $\state(\node)\in\mathcal{S}$, and each edge $(\node,a)\in\edges$ represents an action $a\in\mathcal{A}$ and its transition to a child node. 
-For a node or edge, let $\visit(\node)$ denote the number of completed evaluations and let $Q(\node)$ denote the empirical mean of the discounted returns backpropagated to that node. 
-An action prior $P(\node,a)$, distinct from the transition function $\transition$, can provide additional guidance when the action space is large or continuous.
+Monte Carlo Tree Search (MCTS) incrementally constructs a search tree $\tree=(\nodes,\edges)$ over the MDP.
+Each node $\node\in\nodes$ represents a state $\state(\node)$, and each edge $(\node,a)\in\edges$ represents an action and its transition to a child node.
+Let $\visit(\node)$ denote the number of completed evaluations and $Q(\node)$ the empirical mean of discounted returns backpropagated to that node.
 
-Each MCTS iteration consists of four conceptual operations. During \emph{selection}, the tree policy chooses a promising child by balancing its empirical value and an exploration bonus. 
-During \emph{expansion}, a new action is generated and attached to the selected node. 
-During \emph{evaluation}, the transition associated with the action is evaluated to obtain a reward and a successor state. 
-Finally, during \emph{backpropagation}, the discounted return is propagated through the selected path to update $Q(\node)$ and $\visit(\node)$. 
-A nonterminal leaf may additionally be assigned a leaf-value estimate $\hat V(\state)$, typically obtained from rollout simulation or a problem-specific heuristic.
+Each iteration comprises four operations. During \emph{selection}, the tree policy follows promising children by balancing empirical value and exploration.
+During \emph{expansion}, a new action is generated at the selected node; \emph{evaluation} obtains its reward and successor state.
+A nonterminal leaf may also receive a value estimate $\hat V(\state)$ from a rollout or problem-specific heuristic.
+Finally, \emph{backpropagation} propagates the discounted return along the selected path to update $Q(\node)$ and $\visit(\node)$.
 
-In the present problem, an action is a placement of one remaining object, and its evaluation includes pose refinement and physical simulation. 
-The geometry-informed proposals, batched selection, and finite-horizon leaf evaluation used to adapt MCTS to this expensive continuous-action setting are described in Sec.~\ref{sec:sequence_planning}.
+Here, actions place remaining objects, with evaluation involving pose refinement and physical simulation.
+Our geometry-informed proposals, batched selection, and finite-horizon leaf evaluation are described in Sec.~\ref{sec:sequence_planning}.
 
 \subsection{Overall Structure of the Sequence Planner}
 
-The overall structure of the sequence planner is illustrated in Fig. \ref{fig:overview}. 
-The sequence planner uses Monte Carlo Tree Search (MCTS) to explore the space of possible stacking sequences. 
-For each expansion, the initial pose sampler $\initpose$ proposes a candidate action $\hat{\action}_k=(i_{k+1},\hat{q}_{k+1})$, specifying both the object index and its initial pose.
-The pose optimization module $\poseopt$ refines the pose component to obtain $\action_k=(i_{k+1},q_{k+1})$.
-The structural simulation module $\simul$ subsequently implements the physical transition by evaluating the entire provisional scene and producing the settled next state. 
-The resulting validity and simulation statistics are used to determine whether the action is admitted to the search tree and to evaluate its reward.
-
-This gives the following execution flow:
+Figure~\ref{fig:overview} illustrates the MCTS sequence planner.
+For each expansion, the initial pose sampler $\initpose$ proposes a candidate action $\hat{\action}_k=(i_{k+1},\hat q_{k+1})$, specifying both the object index and its initial pose.
+The pose optimization module $\poseopt$ refines the pose to obtain $\action_k=(i_{k+1},q_{k+1})$.
+The structural simulation module $\simul$ evaluates the entire scene and produces the settled successor state.
+Validity and simulation statistics determine tree admission and reward, giving the execution flow
 \begin{equation*}
 \state_k
 \xrightarrow{\ \initpose\ }
