@@ -1,6 +1,6 @@
 \section{Pose Optimization} \label{sec:pose_optimization}
 
-The pose optimization module $\poseopt$ refines the candidate $\hat q_{k+1}$ from $\initpose$ toward a stable, physically feasible placement $q_{k+1}$.
+The module $\poseopt$ refines $\hat q_{k+1}$ from $\initpose$ toward a stable, physically feasible placement $q_{k+1}$.
 
 \subsection{Single Object Pose Optimization Problem}
 
@@ -12,18 +12,27 @@ Given $\state_k$, we initialize $q$ at $\hat q_{k+1}$ and solve the bilevel prob
 where $q \in \SE(3)$ is the candidate object's pose and $\lambda = (\lambda_1,\cdots,\lambda_{n_c}) \in \real^{3n_c}$ collects all contact forces in the resulting structure, including inter-object and ground contacts.
 This formulation follows prior contact-aware optimization methods \cite{lee2025contactfactorgraph,chen2025bodex}.
 
-The geometric objective $f_\text{geo}(q)$ measures geometric quality, including target shape approximation and collision avoidance; its detailed formulation is provided in the appendix.
-% The geometric objective $f_\text{geo}$ is designed as follows:
-% \begin{equation*}
-%   \begin{split}
-%     f_\text{geo}(q) 
-%     ={}& w_\text{h} f_\text{h}(q) + w_\text{in}f_\text{in}(q \mid \target, \object_{i_{k+1}}) \\
-%     &+ w_\text{pen}f_\text{pen}(q \mid \scene_k, \object_{i_{k+1}})
-%   \end{split}
-% \end{equation*}
-% where $f_\text{h}(q)$ evaluates the height of the object $\object_{i_{k+1}}$ at the pose $q$ to encourage the object to be placed at a lower height for stability, $f_\text{in}(q \mid \target, \object_{i_{k+1}})$ evaluates how well the configuration approximates the target shape $\target$, and $f_\text{pen}(q \mid \scene_k, \object_{i_{k+1}})$ penalizes penetration depth between the object $\object_{i_{k+1}}$ and the objects in the scene $\scene_k$ to avoid collisions.
-% The weights $w_\text{h}, w_\text{in}, w_\text{pen} > 0$ are parameters that balance the importance of each term in the geometric objective $f_\text{geo}$.
-% The detailed formulation of $f_\text{in}$ and $f_\text{pen}$ will be described in the appendix.
+% The geometric objective $f_\text{geo}(q)$ measures geometric quality, including target shape approximation and collision avoidance; its detailed formulation is provided in the appendix.
+The geometric objective $f_\text{geo}$ is designed as follows:
+\begin{equation*}
+  \begin{split}
+    f_\text{geo}(q) 
+    ={}& w_\text{h} f_\text{h}(q) + w_\text{in}f_\text{in}(q \mid \target, \object_{i_{k+1}}) \\
+    &+ w_\text{pen}f_\text{pen}(q \mid \scene_k, \object_{i_{k+1}})
+  \end{split}
+\end{equation*}
+with positive weights. Here, $f_\text{h}$ penalizes higher placements and $f_\text{pen}$ penalizes penetration into the current scene.
+Writing $\object=\object_{i_{k+1}}$ and $\dsf_{\object(q)}(u)=\max_j\dsf_{\convex_{i_{k+1},j}(q)}(u)$, we define
+\begin{equation*}
+  \begin{aligned}
+    m_\text{in}(q)&=\max_j\min_{u\in\mathbb{S}^2}\bigl[\dsf_{\target_j}(u)-\dsf_{\object(q)}(u)\bigr],\\
+    f_\text{in}(q)&=\bigl[\min\{m_\text{in}(q),0\}\bigr]^2.
+  \end{aligned}
+\end{equation*}
+This term penalizes violations of containment of the entire object within a single convex target component, a conservative condition for containment in $\target$.
+It is differentiable almost everywhere in $q$; we compute pose derivatives at regular inner solutions by implicit differentiation.
+Nonsmooth transitions have not caused practical difficulties in our implementation.
+
 Let $\placed_{k+1}:=\placed_k\cup\{i_{k+1}\}$ and let $i_0\notin\placed_{k+1}$ index the fixed ground.
 For distinct $l,m\in\placed_{k+1}\cup\{i_0\}$, let $I_{l,m}\subset\{1,\ldots,n_c\}$ index contacts between bodies $l$ and $m$.
 Each object's contact set $I_l:=\bigcup_{m\in(\placed_{k+1}\cup\{i_0\})\setminus\{l\}}I_{l,m}$ includes ground contacts, but the physical objective excludes the ground's equilibrium residual:
@@ -37,15 +46,6 @@ Each object's contact set $I_l:=\bigcup_{m\in(\placed_{k+1}\cup\{i_0\})\setminus
 The three terms respectively penalize violations of static equilibrium, contact complementarity between the candidate and the current scene, and large contact forces through regularization. 
 Here, $\sd_j(q)$ is the signed distance between the two bodies associated with contact candidate $j$. $J_{c,I_l}$ is the contact Jacobian for object $\object_l$, $\lambda_{\mathrm{ext},l}$ is its external wrench, $\lambda_{I_l}$ is the vector of contact forces at the contact points in $I_l$, and $w_\mathrm{eq},w_\mathrm{cp},\rho>0$ are weighting and regularization parameters.
 
-Finally, each $g_{\text{cone},j}(\cdot)$ is the smoothed friction cone constraints for the $j$-th contact point defined by
-\begin{equation}
-    g_{\text{cone},j}(q, \lambda_j) = \sqrt{\|J_{c,j}^t \lambda_j \|^2 + \epsilon} - \mu_j  J_{c,j}^n \lambda_j
-    \label{eq:friction_cone}
-\end{equation}
-where $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint.
-
-We note that, due to the smoothness of DSFs, the terms in the objective function dependent to $q$ are formulated which allows us to use gradient-based optimization techniques.
-
 % Keep this figure off the current column top, placing it on page 4.
 \suppressfloats[t]
 \begin{figure}[t]
@@ -54,6 +54,14 @@ We note that, due to the smoothness of DSFs, the terms in the objective function
   \caption{Bilevel pose optimization. (Left) For a fixed candidate pose $q$, the lower-level problem optimizes contact forces $\lambda$ under friction constraints to minimize structural equilibrium residuals. (Right) The upper-level problem refines $q\in\SE(3)$ using the geometric objective and the optimized physical objective.}
   \label{fig:pose_optimization}
 \end{figure}
+
+Finally, each $g_{\text{cone},j}(\cdot)$ is the smoothed friction cone constraints for the $j$-th contact point defined by
+\begin{equation}
+    g_{\text{cone},j}(q, \lambda_j) = \sqrt{\|J_{c,j}^t \lambda_j \|^2 + \epsilon} - \mu_j  J_{c,j}^n \lambda_j
+    \label{eq:friction_cone}
+\end{equation}
+where $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint.
+
 
 \subsection{Upper-Level Problem Optimization on SE(3) Manifold}
 
@@ -64,7 +72,7 @@ Then, using the \textit{Envelope theorem} \cite{carter2001matheconomics}, we can
 \end{equation*}
 where $\nu^*_j$ is the optimal dual variable associated with the $j$-th friction cone constraint $g_{\text{cone},j}(q, \lambda^*_j) \leq 0$.
 Using the above gradient, we optimize the placement pose $q$ on SE(3) manifold based on the Riemannian trust-region method \cite{absil2007trust} combined with BFGS Hessian approximation \cite{huang2018riemannianbfgs}.
-In addition, motivated by homotopy based optimization methods \cite{}, we designed the sequence of the weight parameters in $f_\text{geo}(q)$ and $f_\text{phys}(q)$ such as $w_\text{eq}$, $w_\text{cp}$ and iteratively solve the bi-level optimization problem \eqref{eq:pose_optimization} to induce a better local minimum.
+In addition, motivated by homotopy based optimization methods \cite{}, we designed the sequence of the weight parameters in $f_\text{geo}(q)$ and $f_\text{phys}(q)$ such as $w_\text{h}$, $w_\text{in}$, $w_\text{pen}$, $w_\text{eq}$, $w_\text{cp}$ and iteratively solve the bi-level optimization problem \eqref{eq:pose_optimization} to induce a better local minimum.
 
 % \begin{figure}[t]
 %   \centering

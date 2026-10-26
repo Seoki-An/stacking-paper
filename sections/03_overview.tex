@@ -11,6 +11,7 @@ At pose $q=(R,t)\in\SE(3)$, we write
     \qquad \object_i(q_i)=\bigcup_j\convex_{ij}(q_i),
 \end{equation*}
 where $\convex_{ij}$ are the convex components in object $i$'s local frame.
+Similarly, $\target=\bigcup_j\target_j$, where $\target_j$ are fixed convex components in the world frame.
 DSFs support differentiable signed-distance and contact-geometry computations between posed convex bodies~\cite{an2024riemannianmtd}, enabling gradient-based pose optimization.
 
 \subsection{Markov Decision Process Formulation}
