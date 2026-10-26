@@ -1,188 +1,108 @@
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\columnwidth]{figures/initial_pose_sampling.eps}
-  \caption{Initial pose sampling for a fixed object and orientation. Left: scene height (top) and proposal score (bottom). Right: weighted height, floor, support, and boundary contributions.}
+  \includegraphics[width=\columnwidth]{figures/initial_pose_sampling.pdf}
+  \caption{Initial pose sampling for a fixed object and orientation: (a) scene height, (b) proposal score and sampled planar location, and (c) initial pose $\hat q$ above the scene. Magenta links the sampled location and candidate object.}
   \label{fig:score_map}
 \end{figure}
 
-
 \section{Sequence Planning} \label{sec:sequence_planning}
 
-In this section, we describe initial pose sampling, structural simulation, and reward design, followed by their integration into batched MCTS.
-
 \subsection{Initial Pose Sampling}
-The sampler proposes an object $i$, orientation $R$, and planar location $\planar$ on a feasible grid $\mathcal{G}_{i,R}(\state_k)$ according to
+The sampler $\initpose$ allocates fresh proposals to remaining objects in proportion to their volumes and considers a finite set of orientation hypotheses for each object. It prioritizes connected growth on the lowest incomplete layer, seeding an empty scene near feasible target corners. For an object $i$, orientation $R$, and feasible planar location $\planar$, the geometric score is
 \begin{equation*}
-    \begin{aligned}
-        \initpose(i,R,\planar\mid\state_k)
-        &= \pi_{xy}(\planar\mid i,R,\state_k)
-           \pi_\text{unif}(i,R\mid\state_k),\\
-        \pi_{xy}(\planar\mid i,R,\state_k)
-        &\propto
-        \exp\!\left(\score(\planar\mid i,R,\state_k)/\tau\right).
-    \end{aligned}
+  \score(\planar\mid i,R)
+  =w_\text{s}\score_\text{s}+w_\text{f}\score_\text{f}
+   +w_\text{b}\score_\text{b}-w_\text{h}\score_\text{h},
 \end{equation*}
-where $\pi_\text{unif}$ is uniform over the remaining objects
-$i\in\inventory_k$ and finite rotation set $\mathcal{R}$, and $\tau>0$ controls the preference for high scores. Scene geometry determines the initial height $z_{i,R}$, yielding
-$\hat q_{k+1}=(R,(\planar,z_{i,R}(\planar;\state_k)))$ for refinement by $\poseopt$. Omitting the state dependence, the proposal score is
-\begin{equation*}
-  \begin{split}
-    \score(\planar\mid i_{k+1},R) ={}& w_\text{s}\score_\text{s}(\planar\mid i_{k+1},R)+w_\text{f}\score_\text{f}(\planar\mid i_{k+1},R) \\
-    &+w_\text{b}\score_\text{b}(\planar\mid i_{k+1},R)-w_\text{h}\score_\text{h}(\planar\mid i_{k+1},R),
-  \end{split}
-%   \label{eq:initial_pose_score}
-\end{equation*}
-with positive weights. The support score $\score_\text{s}$ favors larger support areas, $\score_\text{f}$ rewards filling empty floor area, $\score_\text{b}$ favors the target boundary, and $\score_\text{h}$ penalizes height. The floor and boundary terms are inspired by the dense first-course packing and boundary-first behavior observed by Menezes et al.~\cite{menezes2021rocks}; the height penalty follows the low-placement preference of their geometric baseline.
-We use these preferences to sample initial poses for continuous refinement.
-Figure~\ref{fig:score_map} illustrates these score maps; their computation is deferred to the appendix.
+with positive weights. The terms measure the fraction of bottom samples near predicted contact, unfilled layer area beneath the footprint, proximity to the feasible placement boundary, and normalized mean contact height, respectively. The floor and boundary preferences are inspired by Menezes et al.~\cite{menezes2021rocks}. Figure~\ref{fig:score_map} illustrates the resulting proposal score and sampled initial pose.
 
-% Sampling pseudocode retained for the appendix.
-% \begin{algorithm}[t]
-%   \caption{Initial pose sampling $\initpose(\state_k)$}
-%   \label{alg:initial_pose_sampling}
-%   \begin{algorithmic}[1]
-%     \Require State $\state_k=(\scene_k,\inventory_k,\target)$, rotation set $\mathcal{R}$
-%     \State Sample $i_{k+1}\sim\operatorname{Unif}(\inventory_k)$ and
-%            $R\sim\operatorname{Unif}(\mathcal{R})$
-%     \State Construct the feasible planar grid
-%            $\mathcal{G}_{i_{k+1},R}(\state_k)$
-%     \State Evaluate $\score(\planar\mid i_{k+1},R,\state_k)$ for all
-%            $\planar\in\mathcal{G}_{i_{k+1},R}(\state_k)$
-%     \State Sample $\planar$ from $\pi_{xy}(\planar\mid i_{k+1},R)$
-%     \State Set $\hat{q}_{k+1}=(R,(\planar,z_{i_{k+1},R}(\planar;\state_k)))$
-%     \State \Return $(i_{k+1},\hat{q}_{k+1})$
-%   \end{algorithmic}
-% \end{algorithm}
+Within eligible pools, the standard sampler combines elite selection with draws without replacement weighted by $\exp(\score/\tau)$, $\tau>0$. Each selected hypothesis is initialized above overlapping scene geometry with a clearance, then refined by $\poseopt$ and filtered for feasibility. At the search root, population refinement additionally mixes fresh proposals with planar-position and yaw mutations of promising candidates, followed by renewed pose optimization.
+% Standard sampler: volume-biased budgets, platform-specific orientation banks,
+% active-layer/connectivity masks, elite fraction 0.25, temperature 0.3.
+% Contact height used for scoring differs from the lifted optimization seed.
+% Composite sampling has region-local masks/layers and currently greedy draws
+% within each eligible region; full composite search remains guarded.
 
-\subsection{Simulation Module}
+\subsection{Simulation Module}\label{sec:simulation}
+The module $\simul$ first settles the new object for a fixed duration with the existing scene static, then simulates the structure. Exploration uses short evaluations that may freeze distant objects while preserving the candidate's support chain. Root placements and final continuation paths receive longer validation without distance-based freezing; explicitly fixed bodies remain static.
 
-After $\poseopt$ refines the candidate pose $\hat{q}_{k+1}$, the simulation
-module $\simul$ evaluates the deterministic transition
-$\state_{k+1}=\transition(\state_k,\action_k)$. It first simulates the new
-object with the existing scene fixed to refine the placement, and then
-simulates the entire scene to verify global stability.
-
-Both stages use early termination. The simulation stops when all placed
-objects have sufficiently small kinetic energy or when accumulated motion
-energy indicates instability. For object $\object_i$, we define
-\begin{align*}
-    E_{\text{kin},i}(t) = \frac{1}{2m_i}\mathcal{V}_i^\top M_i \mathcal{V}_i, \quad 
-    E_{\text{acc},i}(t) = \sum_{s=0}^{t} \sqrt{E_{\text{kin},i}(s)} \Delta t
-\end{align*}
-where $\mathcal{V}_i$ is the spatial velocity, $M_i$ and $m_i$ are the mass
-matrix and mass, respectively, and $\Delta t$ is the simulation time step.
-The early-termination condition is
-\begin{equation}
-    \max_{i \in \placed_{k+1}} E_{\text{kin},i}(t) < \epsilon_\text{kin}
-    \quad\text{or}\quad
-    \max_{i \in \placed_{k+1}} E_{\text{acc},i}(t) > \epsilon_\text{acc}
-\end{equation}
-with the thresholds $\epsilon_\text{kin}, \epsilon_\text{acc} > 0$.
-We implement $\simul$ in CUDA using the GPU-accelerated subADMM algorithm
-\cite{ji2025gpu}.
+Structural settling requires a minimum duration and sustained low mass-normalized kinetic energy. Excessive accumulated motion, invalid contacts, or timeout without settling rejects the placement. We store the settled scene as the successor $\state'=\transition(\state,\action)$. Separate trials start from this scene and apply Gaussian velocity disturbances to the new object, measuring motion of all dynamic bodies. These trials supply robustness scores but do not alter $\state'$. Simulation uses CUDA subADMM~\cite{ji2025gpu}.
+% Quiet proxy: e_b = 2 K_b / m_b; motion integral = integral sqrt(e_b) dt.
+% Disturbance magnitudes, quiet windows, timeouts, and mobility settings are
+% experimental parameters, not a calibrated model of release uncertainty.
 
 \subsection{Reward Design}
-
-The reward balances target coverage, object containment, surface uniformity, and physical stability:
+Let $q_i'$ be object $i$'s pose in the settled successor $s'$ returned by $\simul$ (Sec.~\ref{sec:simulation}). We define the target-volume and object-volume ratios
 \begin{equation*}
-    \begin{split}
-        r(\state_k, \action_k) 
-        ={}& w_\target\frac{\vol\left(\overline{\scene}_{k+1}\right) - \vol\left(\overline{\scene}_k\right)}{\vol(\target)} + w_\object\frac{\vol\left(O_{i_{k+1}}\cap\target\right)}{\vol\left(O_{i_{k+1}}\right)} \\
-        &- w_H\left(\max_{\planar}H_{\scene_{k+1}}(\planar) - \mathbb{E}_{\planar}[H_{\scene_{k+1}}(\planar)]\right) \\
-        & - w_D\mathbb{E}_{\mathcal{V}\sim\mathcal{N}(0,\Sigma)}\left[\Delta q_{k+1}(\mathcal{V})\right]- w_S f_\text{eq}
-    \end{split}
-    \label{eq:reward_function}
+ \rho_\target=\frac{\vol\bigl(\object_i(q_i')\cap\target\bigr)}{\vol(\target)},
+ \quad
+ \rho_\object=\frac{\vol\bigl(\object_i(q_i')\cap\target\bigr)}{\vol(\object_i)}.
 \end{equation*}
-where all weights are positive,
-$\overline{\scene}_k:=\target\cap\bigcup_{i\in\placed_k}\object_i(q_i)$ is the occupied portion of the target shape, and $H_{\scene_{k+1}}(\planar)$ is the upper surface height at $\planar=(x,y)$. 
-The first two terms reward newly filled target volume and the fraction of the candidate contained in the target, respectively. 
-The remaining terms penalize surface height variation, the candidate's expected pose deviation $\Delta q_{k+1}(\mathcal V)$ under Gaussian perturbations $\mathcal V\sim\mathcal N(0,\Sigma)$, and the equilibrium residual $f_\text{eq}$ from $\poseopt$.
+The former measures the new object's contribution to filling the target; the latter measures its containment. Intersection volumes are estimated on a voxel grid. With fixed normalization scales absorbed into positive weights, the standard excavator reward is
+\begin{equation*}
+\begin{split}
+ r(\state,\action)={}&w_\target\rho_\target+w_\object[\rho_\object-\tfrac12]_+
+ -w_E e(\action)\\
+ &-w_H\bigl(\max_{\Omega}H_{\state'}-\langle H_{\state'}\rangle_{\Omega}\bigr)
+ -w_D\widetilde D,
+\end{split}
+\end{equation*}
+where $[x]_+=\max(x,0)$, so the containment bonus is active above $50\%$. Coverage lost through motion of earlier objects is not subtracted. $H_{\state'}$ is surface height over the target footprint $\Omega$, with zero at empty cells; $\langle\cdot\rangle_\Omega$ is its spatial mean.
+
+The equilibrium score uses residual forces $\mathbf f_b$ and torques $\boldsymbol\tau_b$ returned by pose optimization:
+\begin{equation*}
+ e(\action)=\min\!\left\{1,\max_b\left(
+ \frac{\|\mathbf f_b\|}{m_bg}
+ +\frac{\|\boldsymbol\tau_b\|}{m_bg\vol(\object_b)^{1/3}}\right)\right\}.
+\end{equation*}
+Here $b$ indexes participating bodies and $g$ is gravitational acceleration. For disturbance trial $j$, dynamic body $b$, and time $t$, define
+\begin{equation*}
+ D=\max_{j,b,t}\left[
+ \|p_{j,b}(t)-p_b^0\|
+ +\lambda_\theta d_{\SO(3)}(R_{j,b}(t),R_b^0)\right],
+\end{equation*}
+where $(p_b^0,R_b^0)$ is body $b$'s pose in the same successor $s'$, $d_{\SO(3)}$ is angular distance, and $\lambda_\theta$ scales rotation. The capped excursion $\widetilde D$ measures the worst transient motion across trials and dynamic bodies. Physical rejection criteria apply independently of the reward.
+% Fixed scales are absorbed into paper weights, preserving the implemented reward.
+% With Vbar = mean initial object volume and L = Vbar^(1/3), excavator:
+% (w_T,w_O,w_E,w_H,w_D) = (vol(T)/Vbar,2,2,2/L,2/D_ref).
+% Vbar is fixed for the initial inventory, not recomputed at each placement.
+% Containment-ratio clipping is a numerical safeguard for voxel estimates, omitted from
+% the geometric definition above (user agreement). The weight equivalence
+% applies to the geometric reward; runtime estimates retain their safeguards.
+% Tabletop additionally enables inward-orientation reward. Composite reward
+% excludes previously occupied successor voxels and uses masked footprint means.
+% Those variants are not interchangeable with a parent-to-successor union delta.
 
 \subsection{Monte Carlo Tree Search}
-We combine $\initpose$, $\poseopt$, and $\simul$ in a batched, receding-horizon MCTS planner over the MDP defined in Sec.~\ref{sec:overview}. To amortize expensive pose optimization and simulation, we evaluate candidate placements in parallel, following the batched planning approach of~\cite{huang2022pmbs}.
-Algorithm~\ref{alg:mcts} summarizes the finite-horizon search and execution procedure, starting from a tree rooted at the current state $\state_k$.
-
-\begin{algorithm}[t]
-    \caption{Batched receding-horizon MCTS for sequence planning}
-    \label{alg:mcts}
-    \begin{algorithmic}[1]
-        \Require State $\state_k$, previous search tree $\tree$, batch size $B$
-        \Ensure Next state $\state_{k+1}$ and updated tree $\tree$
-        \State Initialize or update $\tree$ at $\state_k$ and evaluate root candidates
-        \While{the search budget remains}
-            \State $\batch\gets\texttt{SELECTBATCH}(\tree,B)$
-            \State $\mathcal{E}\gets\texttt{EVALUATEBATCH}(\batch,\initpose,\poseopt,\simul)$
-            \State $\tree\gets\texttt{BACKPROPAGATE}(\tree,\batch,\mathcal{E})$
-        \EndWhile
-        \State $\action^*\gets\argmax_{\action\in\mathcal{A}_{\mathrm{val}}(\state_k)} Q(\node_{\action})$
-        \State Execute $\action^*$ and obtain $\state_{k+1}$
-        \State Promote its child to the root and retain compatible descendants
-        \State \Return $\state_{k+1},\tree$
-    \end{algorithmic}
-\end{algorithm}
+We integrate these modules in batched, receding-horizon MCTS (Fig.~\ref{fig:overview}), following the parallel evaluation approach of~\cite{huang2022pmbs}.
 
 \noindent \textbf{Batched Selection.}
-We select a batch of expansion paths using PUCT~\cite{silver2017mastering}
-with geometry- and equilibrium-informed action priors. For a child $\node$
-reached from $\node_p$ by action $a$, selection maximizes
+For an optimized action $a=(i,q)$, let $\rho_\object^{\mathrm{pre}}$ denote the object-volume ratio evaluated at $q$, before simulation. The logit $\ell(a)=2(\rho_\object^{\mathrm{pre}}-e(a))$ defines $P(\node_p,a)$ through a softmax over selectable children; root refinement adds the normalized proposal score to $\ell$ for ranking. Writing $N_n=N(n)$ and similarly for $Q_n$ and $\hat N_n$, an evaluated child $n$ of $n_p$ is selected using PUCT~\cite{silver2017mastering}:
 \begin{equation}
-    \puct(\node) =
-    \frac{\visit(\node)Q(\node)}{\visit(\node)+\tmpvisit(\node)}
-    + cP(\node_p,a)
-    \frac{\sqrt{\visit(\node_p)+\tmpvisit(\node_p)}}
-         {1+\visit(\node)+\tmpvisit(\node)},
+    \puct(n)=\frac{N_nQ_n}{N_n+\hat N_n}
+    +cP(n_p,a)\frac{\sqrt{\max\{N_{n_p}+\hat N_{n_p},1\}}}
+         {1+N_n+\hat N_n},
     \label{eq:puct}
 \end{equation}
-where $Q$ is the mean return, $\visit$ and $\tmpvisit$ are completed and
-temporary virtual visit counts, $P(\node_p,a)$ is the action prior at the parent
-(distinct from the transition function $\transition$), and $c>0$ controls
-exploration. Progressive widening allows more children as completed visits
-increase, while virtual visits diversify selection within each batch.
-All paths are selected before physical evaluation begins.
+where $c>0$ controls exploration, $\tmpvisit$ counts temporary reservations, and the first term is zero when its denominator is zero. Non-root progressive widening permits
+$K(\node)=\min\{16,\lceil3\max(\visit(\node),1)^{1/2}\rceil\}$
+children based on completed visits; root capacity is set separately. Selection reserves pending actions or new proposal slots, prioritizing available pending actions before PUCT descent through evaluated children. Reservations prevent duplicate work and do not increase the widening allowance.
 
 \noindent \textbf{Parallel Expansion and Evaluation.}
-Each selected expansion applies $\initpose$, $\poseopt$, and $\simul$ to
-generate, refine, and physically evaluate a candidate placement.
-These evaluations run in parallel and provide settled successor states,
-validity outcomes, and rewards for tree expansion and backpropagation. Root candidates
-are evaluated through the same pipeline.
+After batch selection, fresh proposals pass through $\initpose\to\poseopt\to\simul$, whereas cached optimized actions enter at simulation. Independent candidates are processed in parallel; selection never descends through an action without an evaluated successor. Failed candidates are excluded from further selection.
 
 \noindent \textbf{Leaf Value Estimation and Backpropagation.}
-To avoid further optimization and simulation costs, we replace additional
-rollouts with a heuristic estimate of the remaining return. For a nonterminal
-leaf $\state_l$ at depth $\depth_l$ from the current root, we use
-\begin{equation*}
-    \hat V(\state_l)=\bar r\sum_{j=0}^{h_l-1}\gamma^j,
-    \qquad
-    h_l=\min\!\left\{\depth_M-\depth_l,|\inventory(\state_l)|\right\},
-\end{equation*}
-where $\depth_M$ is the maximum search depth, $\inventory(\state_l)$ is the
-remaining inventory, and $\bar r$ is the mean reward estimated from evaluated
-placements. Terminal and failed leaves receive no bootstrap value.
-Discounted placement rewards and the leaf estimate are backpropagated along each
-selected path to update mean returns $Q$ and visit counts $\visit$.
-Temporary virtual visits are then removed.
+We replace additional rollouts with a discounted fixed per-step reward heuristic over a capped horizon, limited by search depth and remaining inventory. Terminal and failed leaves receive no bootstrap. Discounted returns update $Q$ and $N$ along selected paths, with a failure reward propagated to ancestors of rejected candidates. Temporary reservations are then cleared.
+% B = mu * sum_{j=0}^{h-1} gamma^j,
+% h = min(H_B, d_M + 1 - d_leaf, remaining inventory).
+% This follows the documented caller convention: G = gamma * B before
+% the loop G = r + gamma * G, so the leaf sample is r + gamma^2 * B.
+% Do not remove the leading gamma without checking backup.py and policies.py.
 
 \noindent \textbf{Action Selection and Tree Reuse.}
-After the search budget is exhausted, we execute the physically validated
-root action with the highest mean return. In Algorithm~\ref{alg:mcts},
-$\mathcal{A}_{\mathrm{val}}(\state_k)$ denotes these validated actions and
-$\node_a$ the child reached by $a$. The selected child becomes the new root,
-retaining descendants and search statistics compatible with the resulting
-state. Planning then repeats with a finite lookahead horizon.
-
-% Details retained for the appendix or an expanded version.
-% Root preparation combines fresh proposals from initpose with mutations of
-% promising candidates. Specify the mutation operator and candidate budget.
-% N denotes completed evaluations and hat N temporary reservations, increased
-% along each selected path and removed after evaluation. Reservations do not
-% themselves contribute samples to Q or N.
-% TODO: Specify prior normalization, the unvisited-child convention, and the
-% progressive-widening rule including pending expansion requests.
-% Backpropagation starts with G_l = hat V(s_l), or zero for a terminal leaf, and uses
-% G_t = r(s_t,a_t) + gamma G_{t+1}. The child reached by a_t receives G_t,
-% including the incoming action's reward; Q is updated as an empirical mean.
-% TODO: Specify the evaluations used to estimate bar r, the failure return,
-% and whether failed candidates remain in the tree.
-% Tree reuse discards or revalidates branches inconsistent with the settled
-% state. Specify recovery or termination when the validated action set is empty.
+Among root actions with continuations validated by longer simulations, we maximize
+$J(a)=(1-\beta)Q(\node_a)+\beta G_{\mathrm{val}}(a)$,
+where $\beta\in[0,1]$ and $G_{\mathrm{val}}$ is the validated path return, including the current placement. If bounded repair finds no such path, we fall back to a physically validated root action ranked by mean return. After execution, we update the root from observation, revalidate reused candidates, discard inconsistent descendants, and reset search statistics.
+% Default CUDA: beta=0.5, two validated descendants; root refinement and
+% final validation/repair consume planning time. Do not describe J as argmax Q.
+% No validated root action means no placement is returned for execution.

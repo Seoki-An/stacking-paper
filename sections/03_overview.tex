@@ -1,5 +1,3 @@
-\input{figures/overview.tex}
-
 \section{Overview and Preliminaries} \label{sec:overview}
 
 \subsection{Shape Representation}
@@ -14,6 +12,8 @@ where $\convex_{ij}$ are the convex components in object $i$'s local frame.
 Similarly, $\target=\bigcup_j\target_j$, where $\target_j$ are fixed convex components in the world frame.
 DSFs support differentiable signed-distance and contact-geometry computations between posed convex bodies~\cite{an2024riemannianmtd}, enabling gradient-based pose optimization.
 
+% Queue the pose-optimization figure on page 3 after the overview introduction.
+\input{figures/pose_optimization.tex}
 \subsection{Markov Decision Process Formulation}
 
 To address the construction objective in Eq.~\eqref{eq:problem_definition}, we model stacking as a finite-horizon sequential decision process in which one object is placed at each step. 
@@ -25,7 +25,7 @@ The state, action, and deterministic transition function are
     \state_{k+1}=\transition(\state_k,\action_k),
 \end{equation*}
 where $i_{k+1}\in\inventory_k$. The transition inserts the proposed pose into the scene, simulates the resulting structure, and returns the settled scene with $\inventory_{k+1}=\inventory_k\setminus\{i_{k+1}\}$. 
-The reward $\reward(\state_k,\action_k)$ measures construction progress and physical validity; its implementation is described in Sec.~\ref{sec:sequence_planning}.
+The reward $\reward(\state_k,\action_k)$ scores target-contained volume and physical quality; feasibility checks separately reject invalid transitions (Sec.~\ref{sec:sequence_planning}).
 The sequence planner therefore operates on the MDP $\mdp=(\mathcal{S},\mathcal{A},\transition,\reward,\gamma)$.
 
 \subsection{Monte Carlo Tree Search}
@@ -47,7 +47,7 @@ Our geometry-informed proposals, batched selection, and finite-horizon leaf eval
 Figure~\ref{fig:overview} illustrates the MCTS sequence planner.
 For each expansion, the initial pose sampler $\initpose$ proposes a candidate action $\hat{\action}_k=(i_{k+1},\hat q_{k+1})$, specifying both the object index and its initial pose.
 The pose optimization module $\poseopt$ refines the pose to obtain $\action_k=(i_{k+1},q_{k+1})$.
-The structural simulation module $\simul$ evaluates the entire scene and produces the settled successor state.
+The simulation module $\simul$ evaluates the placement and its effect on the structure, producing the settled successor state before disturbance trials.
 Validity and simulation statistics determine tree admission and reward, giving the execution flow
 \begin{equation*}
 \state_k
@@ -58,4 +58,3 @@ Validity and simulation statistics determine tree admission and reward, giving t
 \xrightarrow{\ \simul\ }
 \state_{k+1},\ \reward(\state_k,\action_k).
 \end{equation*}
-We describe pose optimization in Sec. \ref{sec:pose_optimization} and sequence planning, including structural simulation and reward design, in Sec. \ref{sec:sequence_planning}.

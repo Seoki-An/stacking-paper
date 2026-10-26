@@ -11,7 +11,7 @@ Structural stability also requires reasoning beyond the support of the newly pla
 Liu and Napp~\cite{liu2023stability} explicitly address structural strength during planning, demonstrating the value of evaluating the structure as a whole.
 However, assessing the current structure alone does not determine how a placement affects future support and space utilization.
 Menezes et al.~\cite{menezes2021rocks} address sequential placement through learned action values that account for future rewards, with a prescribed object sequence and fixed orientations.
-We investigate explicit lookahead over object choices and placement poses, coupled with structural equilibrium evaluation and target-shape objectives.
+We investigate explicit lookahead over object choices and placement poses, coupled with structural stability evaluation and target-shape objectives.
 
 We consider stacking a finite inventory of $n$ irregular objects to approximate a target shape $\target\subset\real^3$.
 Let $\object_i(q_i)\subset\real^3$ denote the volume occupied by object $i$ at pose $q_i\in\SE(3)$.
@@ -25,14 +25,17 @@ Jointly optimizing all object poses under coupled physical constraints is comput
 To obtain a practical planning procedure, we decompose construction into sequential decisions, selecting one object and optimizing its placement at each step while checking the resulting structure's physical feasibility.
 This decomposition reduces the dimension of each pose optimization, but each placement changes the support geometry, free space, and remaining inventory.
 Multi-step lookahead allows the planner to evaluate these future consequences beyond immediate placement quality.
-Our central question is how to combine this lookahead with structural equilibrium evaluation in a common framework for different target shapes.
+Our central question is how to combine this lookahead with structural stability evaluation in a common framework for different target shapes.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\columnwidth]{figures/preliminary_result.eps}
+  \includegraphics[width=\columnwidth]{figures/preliminary_result.pdf}
   \caption{Preliminary stacking results. Left: simulated structures for different target shapes. Right: a physical stone structure from an outdoor experiment.}
   \label{fig:preliminary_result}
 \end{figure}
+
+% Queue the two-column overview on page 1 so it appears at the top of page 2.
+\input{figures/overview.tex}
 
 We address this question with a framework coupling bilevel pose optimization and Monte Carlo Tree Search (MCTS).
 The pose optimizer refines geometric proposals using target-shape objectives and a physical objective that evaluates force and torque equilibrium across the structure under friction constraints.
@@ -41,8 +44,8 @@ A bodywise ADMM decomposition enables parallel solution of the contact-force sub
 The sequence planner embeds pose refinement and physical simulation in batched, receding-horizon MCTS, following prior work on batched simulation-based search~\cite{huang2022pmbs}.
 Simulation supplies settled successor states and rejects unstable placements, while multi-step lookahead compares their effects on subsequent construction.
 
-We hypothesize that combining structural equilibrium evaluation with multi-step lookahead improves target coverage while maintaining stability across different target geometries under a fixed planning budget.
-Comparisons with greedy placement and candidate-only equilibrium evaluation will test the effects of lookahead and structural coupling, respectively.
+We hypothesize that combining structural stability evaluation with multi-step lookahead improves target coverage while maintaining stability across different target geometries under a fixed planning budget.
+Comparisons with greedy placement and candidate-only stability evaluation will test the effects of lookahead and structural coupling, respectively.
 Evaluations across target shapes and search horizons will examine the applicability of the common formulation and its computational tradeoffs.
 The proposed contributions are:
 \begin{itemize}

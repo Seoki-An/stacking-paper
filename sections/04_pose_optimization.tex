@@ -21,19 +21,25 @@ The geometric objective $f_\text{geo}$ is designed as follows:
     &+ w_\text{pen}f_\text{pen}(q \mid \scene_k, \object_{i_{k+1}})
   \end{split}
 \end{equation*}
-with positive weights. Here, $f_\text{h}$ penalizes higher placements and $f_\text{pen}$ penalizes penetration into the current scene.
-Writing $\object=\object_{i_{k+1}}$ and $\dsf_{\object(q)}(u)=\max_j\dsf_{\convex_{i_{k+1},j}(q)}(u)$, we define
+with positive weights. For $q=(R,t)$, $f_\text{h}(q)=t_z$ is the world-frame height of the candidate's pose origin.
+Writing $\object=\object_{i_{k+1}}$, we penalize proximity to existing objects and the fixed ground, indexed by $i_0$, as
+\begin{equation*}
+  f_\text{pen}(q)=\sum_{j\in\placed_k\cup\{i_0\}}
+  \bigl[\epsilon_\text{margin}-d(\object(q),\object_j(q_j))\bigr]_+^2,
+\end{equation*}
+where $d$ is signed distance (positive for separation), $[x]_+=\max(x,0)$, and $\epsilon_\text{margin}\geq0$ is the clearance margin.
+With $\dsf_{\object(q)}(u)=\max_j\dsf_{\convex_{i_{k+1},j}(q)}(u)$, we define
 \begin{equation*}
   \begin{aligned}
     m_\text{in}(q)&=\max_j\min_{u\in\mathbb{S}^2}\bigl[\dsf_{\target_j}(u)-\dsf_{\object(q)}(u)\bigr],\\
-    f_\text{in}(q)&=\bigl[\min\{m_\text{in}(q),0\}\bigr]^2.
+    f_\text{in}(q)&=\bigl[-m_\text{in}(q)\bigr]_+^2.
   \end{aligned}
 \end{equation*}
 This term penalizes violations of containment of the entire object within a single convex target component, a conservative condition for containment in $\target$.
 It is differentiable almost everywhere in $q$; we compute pose derivatives at regular inner solutions by implicit differentiation.
 Nonsmooth transitions have not caused practical difficulties in our implementation.
 
-Let $\placed_{k+1}:=\placed_k\cup\{i_{k+1}\}$ and let $i_0\notin\placed_{k+1}$ index the fixed ground.
+Let $\placed_{k+1}:=\placed_k\cup\{i_{k+1}\}$, excluding the ground index $i_0$.
 For distinct $l,m\in\placed_{k+1}\cup\{i_0\}$, let $I_{l,m}\subset\{1,\ldots,n_c\}$ index contacts between bodies $l$ and $m$.
 Each object's contact set $I_l:=\bigcup_{m\in(\placed_{k+1}\cup\{i_0\})\setminus\{l\}}I_{l,m}$ includes ground contacts, but the physical objective excludes the ground's equilibrium residual:
 \begin{equation}
@@ -45,15 +51,6 @@ Each object's contact set $I_l:=\bigcup_{m\in(\placed_{k+1}\cup\{i_0\})\setminus
 \end{equation}
 The three terms respectively penalize violations of static equilibrium, contact complementarity between the candidate and the current scene, and large contact forces through regularization. 
 Here, $\sd_j(q)$ is the signed distance between the two bodies associated with contact candidate $j$. $J_{c,I_l}$ is the contact Jacobian for object $\object_l$, $\lambda_{\mathrm{ext},l}$ is its external wrench, $\lambda_{I_l}$ is the vector of contact forces at the contact points in $I_l$, and $w_\mathrm{eq},w_\mathrm{cp},\rho>0$ are weighting and regularization parameters.
-
-% Keep this figure off the current column top, placing it on page 4.
-\suppressfloats[t]
-\begin{figure}[t]
-  \centering
-  \includegraphics[scale=1.0]{figures/pose_optimization.eps}
-  \caption{Bilevel pose optimization. (Left) For a fixed candidate pose $q$, the lower-level problem optimizes contact forces $\lambda$ under friction constraints to minimize structural equilibrium residuals. (Right) The upper-level problem refines $q\in\SE(3)$ using the geometric objective and the optimized physical objective.}
-  \label{fig:pose_optimization}
-\end{figure}
 
 Finally, each $g_{\text{cone},j}(\cdot)$ is the smoothed friction cone constraints for the $j$-th contact point defined by
 \begin{equation}
@@ -72,7 +69,7 @@ Then, using the \textit{Envelope theorem} \cite{carter2001matheconomics}, we can
 \end{equation*}
 where $\nu^*_j$ is the optimal dual variable associated with the $j$-th friction cone constraint $g_{\text{cone},j}(q, \lambda^*_j) \leq 0$.
 Using the above gradient, we optimize the placement pose $q$ on SE(3) manifold based on the Riemannian trust-region method \cite{absil2007trust} combined with BFGS Hessian approximation \cite{huang2018riemannianbfgs}.
-In addition, motivated by homotopy based optimization methods \cite{}, we designed the sequence of the weight parameters in $f_\text{geo}(q)$ and $f_\text{phys}(q)$ such as $w_\text{h}$, $w_\text{in}$, $w_\text{pen}$, $w_\text{eq}$, $w_\text{cp}$ and iteratively solve the bi-level optimization problem \eqref{eq:pose_optimization} to induce a better local minimum.
+We progressively adjust the geometric and physical objective weights and resolve Eq.~\eqref{eq:pose_optimization} to guide the local search.
 
 % \begin{figure}[t]
 %   \centering
