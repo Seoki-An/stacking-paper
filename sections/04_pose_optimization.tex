@@ -25,9 +25,9 @@ with positive weights. For $q=(R,t)$, $f_\text{h}(q)=t_z$ is the world-frame hei
 Writing $\object=\object_{i_{k+1}}$, we penalize proximity to existing objects and the fixed ground, indexed by $i_0$, as
 \begin{equation*}
   f_\text{pen}(q)=\sum_{j\in\placed_k\cup\{i_0\}}
-  \bigl[\epsilon_\text{margin}-d(\object(q),\object_j(q_j))\bigr]_+^2,
+  \bigl[\epsilon_\text{margin}-\sd(\object(q),\object_j(q_j))\bigr]_+^2,
 \end{equation*}
-where $d$ is signed distance (positive for separation), $[x]_+=\max(x,0)$, and $\epsilon_\text{margin}\geq0$ is the clearance margin.
+where $\sd$ is signed distance (positive for separation), $[x]_+=\max(x,0)$, and $\epsilon_\text{margin}\geq0$ is the clearance margin.
 With $\dsf_{\object(q)}(u)=\max_j\dsf_{\convex_{i_{k+1},j}(q)}(u)$, we define
 \begin{equation*}
   \begin{aligned}
