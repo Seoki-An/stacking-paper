@@ -1,13 +1,15 @@
 \section{Pose Optimization} \label{sec:pose_optimization}
 
-The module $\poseopt$ refines $\hat q_{k+1}$ from $\initpose$ toward a stable, physically feasible placement $q_{k+1}$.
+The module $\poseopt$ refines $\hat q_{k+1}$ from $\initpose$ toward a stable,
+physically feasible placement $q_{k+1}$.
 
 \subsection{Single Object Pose Optimization Problem}
 
-Given $\state_k$, we initialize $q$ at $\hat q_{k+1}$ and solve the bilevel problem
+Given $\state_k$, we initialize $q$ at $\hat q_{k+1}$ and solve the bilevel
+problem
 \begin{IEEEeqnarray}{rCl}
-  \min_{q} &{\quad}& \left[f_\text{geo}(q) + \min_{\lambda} f_\text{phys}(q, \lambda)\right] \label{eq:pose_optimization} \\ 
-    \text{s.t. } &{\quad}& g_{\text{cone},j}(q,\lambda_j) \leq 0, \quad j=1,\cdots,n_c \nonumber
+  \min_{q} &{\quad}& \left[f_\text{geo}(q) + \min_{\lambda} f_\text{phys}(q, \lambda)\right] \label{eq:pose_optimization} \\
+  \text{s.t. } &{\quad}& g_{\text{cone},j}(q,\lambda_j) \leq 0, \quad j=1,\cdots,n_c \nonumber
 \end{IEEEeqnarray}
 where $q \in \SE(3)$ is the candidate object's pose and $\lambda = (\lambda_1,\cdots,\lambda_{n_c}) \in \real^{3n_c}$ collects all contact forces in the resulting structure, including inter-object and ground contacts.
 This formulation follows prior contact-aware optimization methods \cite{lee2025contactfactorgraph,chen2025bodex}.
@@ -16,9 +18,9 @@ This formulation follows prior contact-aware optimization methods \cite{lee2025c
 The geometric objective $f_\text{geo}$ is designed as follows:
 \begin{equation*}
   \begin{split}
-    f_\text{geo}(q) 
-    ={}& w_\text{h} f_\text{h}(q) + w_\text{in}f_\text{in}(q \mid \target, \object_{i_{k+1}}) \\
-    &+ w_\text{pen}f_\text{pen}(q \mid \scene_k, \object_{i_{k+1}})
+    f_\text{geo}(q)
+    ={} & w_\text{h} f_\text{h}(q) + w_\text{in}f_\text{in}(q \mid \target, \object_{i_{k+1}}) \\
+        & + w_\text{pen}f_\text{pen}(q \mid \scene_k, \object_{i_{k+1}})
   \end{split}
 \end{equation*}
 with positive weights. For $q=(R,t)$, $f_\text{h}(q)=t_z$ is the world-frame height of the candidate's pose origin.
@@ -31,45 +33,54 @@ where $\sd$ is signed distance (positive for separation), $[x]_+=\max(x,0)$, and
 With $\dsf_{\object(q)}(u)=\max_j\dsf_{\convex_{i_{k+1},j}(q)}(u)$, we define
 \begin{equation*}
   \begin{aligned}
-    m_\text{in}(q)&=\max_j\min_{u\in\mathbb{S}^2}\bigl[\dsf_{\target_j}(u)-\dsf_{\object(q)}(u)\bigr],\\
-    f_\text{in}(q)&=\bigl[-m_\text{in}(q)\bigr]_+^2.
+    m_\text{in}(q) & =\max_j\min_{u\in\mathbb{S}^2}\bigl[\dsf_{\target_j}(u)-\dsf_{\object(q)}(u)\bigr], \\
+    f_\text{in}(q) & =\bigl[-m_\text{in}(q)\bigr]_+^2.
   \end{aligned}
 \end{equation*}
 This term penalizes violations of containment of the entire object within a single convex target component, a conservative condition for containment in $\target$.
 It is differentiable almost everywhere in $q$; we compute pose derivatives at regular inner solutions by implicit differentiation.
 Nonsmooth transitions have not caused practical difficulties in our implementation.
 
-Let $\placed_{k+1}:=\placed_k\cup\{i_{k+1}\}$, excluding the ground index $i_0$.
-For distinct $l,m\in\placed_{k+1}\cup\{i_0\}$, let $I_{l,m}\subset\{1,\ldots,n_c\}$ index contacts between bodies $l$ and $m$.
-Each object's contact set $I_l:=\bigcup_{m\in(\placed_{k+1}\cup\{i_0\})\setminus\{l\}}I_{l,m}$ includes ground contacts, but the physical objective excludes the ground's equilibrium residual:
+Let $\placed_{k+1}:=\placed_k\cup\{i_{k+1}\}$, excluding the ground index
+$i_0$. For distinct $l,m\in\placed_{k+1}\cup\{i_0\}$, let
+$I_{l,m}\subset\{1,\ldots,n_c\}$ index contacts between bodies $l$ and $m$.
+Each object's contact set
+$I_l:=\bigcup_{m\in(\placed_{k+1}\cup\{i_0\})\setminus\{l\}}I_{l,m}$ includes
+ground contacts, but the physical objective excludes the ground's equilibrium
+residual:
 \begin{equation}
   \begin{split}
     f_\text{phys}(q,\lambda) \label{eq:force_objective}
-    ={}& w_\text{eq}\sum_{l \in \placed_{k+1}} \|J_{c,I_l}^\top(q)  \lambda_{I_l} + \lambda_{\text{ext},l}\|^2 \\
-    &+ w_\text{cp}\sum_{j \in I_{i_{k+1}}}\sd_j(q)^2 \|\lambda_j\|^2 + \rho\sum_{j = 1}^{n_c} \|\lambda_j\|^2    
-  \end{split} 
+    ={} & w_\text{eq}\sum_{l \in \placed_{k+1}} \|J_{c,I_l}^\top(q)  \lambda_{I_l} + \lambda_{\text{ext},l}\|^2            \\
+        & + w_\text{cp}\sum_{j \in I_{i_{k+1}}}\sd_j(q)^2 \|\lambda_j\|^2 + w_\text{reg}\sum_{j = 1}^{n_c} \|\lambda_j\|^2
+  \end{split}
 \end{equation}
-The three terms respectively penalize violations of static equilibrium, contact complementarity between the candidate and the current scene, and large contact forces through regularization. 
-Here, $\sd_j(q)$ is the signed distance between the two bodies associated with contact candidate $j$. $J_{c,I_l}$ is the contact Jacobian for object $\object_l$, $\lambda_{\mathrm{ext},l}$ is its external wrench, $\lambda_{I_l}$ is the vector of contact forces at the contact points in $I_l$, and $w_\mathrm{eq},w_\mathrm{cp},\rho>0$ are weighting and regularization parameters.
+The three terms respectively penalize violations of static equilibrium, contact complementarity between the candidate and the current scene, and large contact forces through regularization.
+Here, $\sd_j(q)$ is the signed distance between the two bodies associated with contact candidate $j$. $J_{c,I_l}$ is the contact Jacobian for object $\object_l$, $\lambda_{\mathrm{ext},l}$ is its external wrench, $\lambda_{I_l}$ is the vector of contact forces at the contact points in $I_l$, and $w_\mathrm{eq},w_\mathrm{cp},w_\mathrm{reg}>0$ are objective weights.
 
-Finally, each $g_{\text{cone},j}(\cdot)$ is the smoothed friction cone constraints for the $j$-th contact point defined by
+Finally, each $g_{\text{cone},j}(\cdot)$ is the smoothed friction cone
+constraints for the $j$-th contact point defined by
 \begin{equation}
-    g_{\text{cone},j}(q, \lambda_j) = \sqrt{\|J_{c,j}^t \lambda_j \|^2 + \epsilon} - \mu_j  J_{c,j}^n \lambda_j
-    \label{eq:friction_cone}
+  g_{\text{cone},j}(q, \lambda_j) = \sqrt{\|J_{c,j}^t \lambda_j \|^2 + \epsilon} - \mu_j  J_{c,j}^n \lambda_j
+  \label{eq:friction_cone}
 \end{equation}
 where $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint.
 
-
 \subsection{Upper-Level Problem Optimization on SE(3) Manifold}
 
-Denoting $\lambda^*(q)$ as the optimal $\lambda$ of the lower-level problem for a given pose $q$,  we define the force dependent objective function as $f_\text{phys}(q) := f_\text{phys}(q, \lambda^*(q))$.
-Then, using the \textit{Envelope theorem} \cite{carter2001matheconomics}, we can compute the gradient of $f_\text{phys}(q)$ with respect to $q$ as follows:
+Denoting $\lambda^*(q)$ as the optimal $\lambda$ of the lower-level problem for
+a given pose $q$, we define the force dependent objective function as
+$f_\text{phys}(q) := f_\text{phys}(q, \lambda^*(q))$. Then, using the
+\textit{Envelope theorem} \cite{carter2001matheconomics}, we can compute the
+gradient of $f_\text{phys}(q)$ with respect to $q$ as follows:
 \begin{equation*}
-    \frac{df_\text{phys}(q)}{dq} = \frac{\partial f_\text{phys}(q, \lambda^*)}{\partial q} + \sum_{j=1}^{n_c} \nu^*_j \frac{\partial g_{\text{cone},j}(q, \lambda^*_j)}{\partial q}
+  \frac{df_\text{phys}(q)}{dq} = \frac{\partial f_\text{phys}(q, \lambda^*)}{\partial q} + \sum_{j=1}^{n_c} \nu^*_j \frac{\partial g_{\text{cone},j}(q, \lambda^*_j)}{\partial q}
 \end{equation*}
 where $\nu^*_j$ is the optimal dual variable associated with the $j$-th friction cone constraint $g_{\text{cone},j}(q, \lambda^*_j) \leq 0$.
 Using the above gradient, we optimize the placement pose $q$ on SE(3) manifold based on the Riemannian trust-region method \cite{absil2007trust} combined with BFGS Hessian approximation \cite{huang2018riemannianbfgs}.
-We progressively adjust the geometric and physical objective weights and resolve Eq.~\eqref{eq:pose_optimization} to guide the local search.
+We use a homotopy schedule to jointly adjust the geometric and physical objective weights, including the force regularization weight $w_\text{reg}$.
+Each stage holds these weights fixed and solves Eq.~\eqref{eq:pose_optimization}, initialized from the preceding stage's pose.
+The schedule progressively reduces $w_\text{reg}$ to limit regularization-induced equilibrium residuals, and the final stage supplies the pose and contact forces used for candidate evaluation.
 
 % \begin{figure}[t]
 %   \centering
@@ -85,13 +96,20 @@ We progressively adjust the geometric and physical objective weights and resolve
 
 \subsection{Lower-Level Problem Optimization with ADMM}
 
-For a fixed $q$, the lower-level problem is a convex optimization problem with respect to $\lambda$ which can be efficiently solved.
-Moreover, exploiting the inherent structure of the lower-level problem, we can reformulate it to be separable with respect to the objects $\placed_{k+1}$ in the scene and apply the alternating direction method of multipliers (ADMM) \cite{boyd2011distributed} to solve it in a scalable manner.
-For each contact force $\lambda_j$, we introduce two local copies $\lambda_{j,1}$ and $\lambda_{j,2}$ associated with the two contacting bodies, including the fixed ground.
-Specifically, for $j \in I_{l,m}$ with $l < m$, the copies are associated with bodies $l$ and $m$, respectively.
-We then impose the consensus constraints $\lambda_{j,1} = \lambda_{j,2}$.
-Collecting all local copies into $\tilde{\lambda}$ makes the force and torque equilibrium term separable by body: each body's residual depends only on its own local contact-force variables. The consensus constraints maintain agreement between copies of each shared contact force.
-The lower-level problem can therefore be reformulated as
+For a fixed $q$, the lower-level problem is a convex optimization problem with
+respect to $\lambda$ which can be efficiently solved. Moreover, exploiting the
+inherent structure of the lower-level problem, we can reformulate it to be
+separable with respect to the objects $\placed_{k+1}$ in the scene and apply
+the alternating direction method of multipliers (ADMM)
+\cite{boyd2011distributed} to solve it in a scalable manner. For each contact
+force $\lambda_j$, we introduce two local copies $\lambda_{j,1}$ and
+$\lambda_{j,2}$ associated with the two contacting bodies, including the fixed
+ground. Specifically, for $j \in I_{l,m}$ with $l < m$, the copies are
+associated with bodies $l$ and $m$, respectively. We then impose the consensus
+constraints $\lambda_{j,1} = \lambda_{j,2}$. Collecting all local copies into
+$\tilde{\lambda}$ makes the force and torque equilibrium term separable by
+body: each body's residual depends only on its own local contact-force
+variables. The lower-level problem can therefore be reformulated as
 \begin{IEEEeqnarray*}{rCl}
   \min_{\tilde{\lambda},z}
   &{\quad}&

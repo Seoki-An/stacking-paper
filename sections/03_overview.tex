@@ -34,12 +34,9 @@ Monte Carlo Tree Search (MCTS) incrementally constructs a search tree $\tree=(\n
 Each node $\node\in\nodes$ represents a state $\state(\node)$, and each edge $(\node,a)\in\edges$ represents an action and its transition to a child node.
 Let $\visit(\node)$ denote the number of completed evaluations and $Q(\node)$ the empirical mean of discounted returns backpropagated to that node.
 
-Each iteration comprises four operations. During \emph{selection}, the tree policy follows promising children by balancing empirical value and exploration.
-During \emph{expansion}, a new action is generated at the selected node; \emph{evaluation} obtains its reward and successor state.
-A nonterminal leaf may also receive a value estimate $\hat V(\state)$ from a rollout or problem-specific heuristic.
-Finally, \emph{backpropagation} propagates the discounted return along the selected path to update $Q(\node)$ and $\visit(\node)$.
+Each iteration balances value and exploration during \emph{selection}, then generates and evaluates a new action during \emph{expansion} and \emph{evaluation}.
+\emph{Backpropagation} updates $Q(\node)$ and $\visit(\node)$ along the selected path using the discounted return.
 
-Here, actions place remaining objects, with evaluation involving pose refinement and physical simulation.
 Our geometry-informed proposals, batched selection, and finite-horizon leaf evaluation are described in Sec.~\ref{sec:sequence_planning}.
 
 \subsection{Overall Structure of the Sequence Planner}
