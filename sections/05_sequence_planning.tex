@@ -8,15 +8,19 @@
 \section{Sequence Planning} \label{sec:sequence_planning}
 
 \subsection{Initial Pose Sampling}
-The sampler $\initpose$ uses volume-biased object sampling with a finite orientation set per object. It prioritizes the lowest incomplete layer and seeds empty scenes near feasible target corners. For object $i$, orientation $R$, and feasible planar location $\planar$, the score is
+The sampler $\initpose$ uses volume-biased object sampling with a finite orientation set per object. It favors lower placements and seeds empty scenes near feasible target corners. For object $i$, orientation $R$, and feasible planar location $\planar$, the score is
 \begin{equation*}
   \score(\planar\mid i,R)
   =w_\text{s}\score_\text{s}+w_\text{f}\score_\text{f}
    +w_\text{b}\score_\text{b}-w_\text{h}\score_\text{h}-w_\text{d}\score_\text{d},
 \end{equation*}
-with positive weights. The first four terms measure the fraction of bottom samples near predicted contact, unfilled layer area beneath the footprint, proximity to the feasible placement boundary, and normalized mean contact height, respectively. The distance penalty $\score_\text{d}=[d_\mathrm{prev}-\delta]_+/(L+[d_\mathrm{prev}-\delta]_+)$ uses the minimum gap $d_\mathrm{prev}$ between the convex XY footprints of the candidate and preceding object, gap tolerance $\delta\geq0$, and length scale $L$, the cube root of the initial inventory's mean object volume. Favoring nearby placements helps MCTS lookahead assess interactions between successive objects; distant proposals remain eligible. The first placement incurs no penalty. The floor and boundary preferences are inspired by Menezes et al.~\cite{menezes2021rocks}. Figure~\ref{fig:score_map} illustrates the proposal score and sampled initial pose.
+with positive weights. The first four terms measure the fraction of bottom samples near predicted contact, unfilled layer area beneath the footprint, proximity to the feasible placement boundary, and normalized mean contact height, respectively. A bounded penalty $\score_\text{d}$ on the planar footprint gap to the preceding object favors nearby placements, helping MCTS assess interactions between successive objects without excluding distant proposals. It is zero for the first placement. The floor and boundary preferences are inspired by Menezes et al.~\cite{menezes2021rocks}. Figure~\ref{fig:score_map} illustrates the proposal score and sampled initial pose.
 
-We combine elite selection with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$. Proposals start above the scene with clearance and undergo $\poseopt$ refinement, including XY/yaw mutations at the root. To preserve locality, both optimized and settled XY positions must stay within $\eta\vol(\object_i)^{1/3}$ of the proposal's initial XY position, $\eta>0$. Refined poses' lowest points must not exceed the active-layer height plus a tolerance; projected coverage determines layer advancement. Blocked expansion may retry without this layer restriction within the remaining budget; other admission checks remain.
+We combine elite selection with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$. Proposals start above the scene with clearance and undergo $\poseopt$ refinement, including XY/yaw mutations at the root. Heuristic filters limit planar displacement from each initial pose after optimization and settling, and screen out candidates whose bottoms lie too far above the current construction level.
+% Distance penalty: sigma_d = [d_prev - delta]_+ / (L + [d_prev - delta]_+),
+% using the convex XY footprint gap and L = cube root of mean inventory volume.
+% XY displacement limit: eta * volume(candidate)^(1/3).
+% The active layer advances at a prescribed projected-coverage threshold.
 % Standard sampler: volume-biased budgets, platform-specific orientation banks,
 % soft previous-action distance, elite fraction 0.25, temperature 0.3.
 % Active-layer admission is a construction-order filter after pose optimization,
@@ -46,7 +50,6 @@ Initial angular velocity is zero, and every candidate uses the same $n_d$ distur
 To reduce computation, only the candidate and stones within two links in the nominal scene's contact graph of movable stones remain dynamic throughout each trial.
 All other bodies retain fixed collision geometry.
 These trials estimate local robustness without changing $\state'$.
-The resulting successor, reward, and feasibility outcome are stored in the tree and used directly for subsequent search and action selection.
 Simulation uses CUDA subADMM~\cite{ji2025gpu}.
 % Quiet proxy: e_l = 2 K_l / m_l; motion integral = integral sqrt(e_l) dt.
 % Disturbance magnitudes, quiet windows, timeouts, and mobility settings are
@@ -98,6 +101,8 @@ The maximum spans predefined disturbances, objects $l$ in this local dynamic nei
 % excludes previously occupied successor voxels and uses masked footprint means.
 % Those variants are not interchangeable with a parent-to-successor union delta.
 
+\input{figures/mcts_example.tex}
+
 \subsection{Monte Carlo Tree Search}
 We integrate these modules in batched, receding-horizon MCTS (Fig.~\ref{fig:overview}), following the parallel evaluation approach of~\cite{huang2022pmbs}.
 Figure~\ref{fig:mcts_example} shows a recorded comparison with greedy placement.
@@ -129,19 +134,16 @@ We replace rollouts with a discounted per-step reward heuristic, capped by depth
 \noindent \textbf{Action Selection and Tree Reuse.}
 After search, we select an action using only the evaluated tree.
 Let $\depth$ be the required number of descendant edges below a root candidate, capped by the remaining search horizon.
-For a root action $a$, let $G_{\depth}(a)$ be the maximum discounted return over existing feasible paths reaching this depth, including the reward of $a$; successful terminal states may end a path earlier.
+For a root action $a$, let $G_{\depth}(a)$ be the maximum discounted return over existing feasible paths reaching this depth, including the reward of $a$.
 Among root actions with such a path, we maximize
 \begin{equation*}
   J(a)=(1-\beta)Q(\node_a)+\beta G_{\depth}(a),\qquad \beta\in[0,1].
 \end{equation*}
-The depth requirement is independent of $\beta$.
-If no root action satisfies it, we select the physically feasible root action with the highest mean return.
-If no physically feasible root action exists, the planner returns no placement.
+The path-return term counterbalances failures accumulated during exploration, which can depress the mean even when a promising feasible path exists.
+If no root action meets the depth requirement, we select the feasible root action with the highest mean return, or return no placement if none is feasible.
 
 After execution, we advance the root to the observed successor.
 Evaluated descendants are retained when this state and the planning context match those used to construct the subtree; otherwise, the affected subtree and its statistics are discarded.
 % Current CUDA defaults: beta=0.5 and \depth=2, capped by the remaining horizon.
 % G_{\depth} uses evaluated rewards without a leaf bootstrap. Reused visit statistics
 % may be reset separately; retaining transitions does not require retaining Q/N.
-
-\input{figures/mcts_example.tex}

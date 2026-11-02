@@ -24,7 +24,7 @@ The geometric objective $f_\mathrm{geo}$ is designed as follows:
   \end{split}
 \end{equation*}
 with positive weights. For $q=(R,t)$, $f_\mathrm{h}(q)=t_z$ is the world-frame height of the candidate's pose origin.
-Writing $\object=\object_{i_{k+1}}$, we penalize proximity to existing objects and the fixed ground, indexed by $i_0$, as
+Writing $\object=\object_{i_{k+1}}$, we penalize proximity to existing objects and the fixed ground as
 \begin{equation*}
   f_\mathrm{pen}(q)=\sum_{j\in\placed_k\cup\{i_0\}}
   \bigl[\epsilon_\mathrm{margin}-\sd(\object(q),\object_j(q_j))\bigr]_+^2,
@@ -38,11 +38,12 @@ With $\dsf_{\object(q)}(u)=\max_j\dsf_{\convex_{i_{k+1},j}(q)}(u)$, we define
   \end{aligned}
 \end{equation*}
 This term penalizes violations of containment of the entire object within a single convex target component, a conservative condition for containment in $\target$.
-It is differentiable almost everywhere in $q$; we compute pose derivatives at regular inner solutions by implicit differentiation.
+Noting that the term is differentiable almost everywhere in $q$, we compute pose derivatives at regular inner solutions by implicit differentiation.
 Nonsmooth transitions have not caused practical difficulties in our implementation.
 
-Let $\placed_{k+1}:=\placed_k\cup\{i_{k+1}\}$, excluding the ground index
-$i_0$. For distinct $l,m\in\placed_{k+1}\cup\{i_0\}$, let
+\input{figures/pose_optimization.tex}
+
+Let $\placed_{k+1}:=\placed_k\cup\{i_{k+1}\}$. For distinct $l,m\in\placed_{k+1}\cup\{i_0\}$, let
 $I_{l,m}\subset\{1,\ldots,n_c\}$ index contacts between bodies $l$ and $m$.
 Each object's contact set
 $I_l:=\bigcup_{m\in(\placed_{k+1}\cup\{i_0\})\setminus\{l\}}I_{l,m}$ includes
@@ -70,19 +71,15 @@ where $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficie
 
 \subsection{Upper-Level Problem Optimization on SE(3) Manifold}
 
-Denoting $\lambda^*(q)$ as the optimal $\lambda$ of the lower-level problem for
-a given pose $q$, we define the force dependent objective function as
-$f_\mathrm{phys}(q) := f_\mathrm{phys}(q, \lambda^*(q))$. Then, using the
-\textit{Envelope theorem} \cite{carter2001matheconomics}, we can compute the
-gradient of $f_\mathrm{phys}(q)$ with respect to $q$ as follows:
+Let $\lambda^*(q)$ be the solution of the lower-level problem and define $f_\mathrm{phys}(q):=f_\mathrm{phys}(q,\lambda^*(q))$.
+The envelope theorem~\cite{carter2001matheconomics} gives
 \begin{equation*}
   \frac{df_\mathrm{phys}(q)}{dq} = \frac{\partial f_\mathrm{phys}(q, \lambda^*)}{\partial q} + \sum_{j=1}^{n_c} \nu^*_j \frac{\partial g_{\mathrm{cone},j}(q, \lambda^*_j)}{\partial q}
 \end{equation*}
-where $\nu^*_j$ is the optimal dual variable associated with the $j$-th friction cone constraint $g_{\mathrm{cone},j}(q, \lambda^*_j) \leq 0$.
+where $\nu^*_j$ is the optimal dual variable for the $j$-th friction cone constraint.
 Using the above gradient, we optimize the placement pose $q$ on SE(3) manifold based on the Riemannian trust-region method \cite{absil2007trust} combined with BFGS Hessian approximation \cite{huang2018riemannianbfgs}.
-We use a homotopy schedule to jointly adjust the geometric and physical objective weights, including the force regularization weight $w_\mathrm{reg}$.
-Each stage holds these weights fixed and solves Eq.~\eqref{eq:pose_optimization}, initialized from the preceding stage's pose.
-The schedule progressively reduces $w_\mathrm{reg}$ to limit regularization-induced equilibrium residuals, and the final stage supplies the pose and contact forces used for candidate evaluation.
+A homotopy schedule adjusts the geometric and physical weights between stages, holding them fixed within each stage and initializing from the preceding pose.
+It progressively reduces $w_\mathrm{reg}$ to limit regularization-induced equilibrium residuals. Candidate evaluation uses the final pose and forces.
 
 % \begin{figure}[t]
 %   \centering
@@ -98,20 +95,10 @@ The schedule progressively reduces $w_\mathrm{reg}$ to limit regularization-indu
 
 \subsection{Lower-Level Problem Optimization with ADMM}
 
-For a fixed $q$, the lower-level problem is a convex optimization problem with
-respect to $\lambda$ which can be efficiently solved. Moreover, exploiting the
-inherent structure of the lower-level problem, we can reformulate it to be
-separable with respect to the objects $\placed_{k+1}$ in the scene and apply
-the alternating direction method of multipliers (ADMM)
-\cite{boyd2011distributed} to solve it in a scalable manner. For each contact
-force $\lambda_j$, we introduce two local copies $\lambda_{j,1}$ and
-$\lambda_{j,2}$ associated with the two contacting bodies, including the fixed
-ground. Specifically, for $j \in I_{l,m}$ with $l < m$, the copies are
-associated with bodies $l$ and $m$, respectively. We then impose the consensus
-constraints $\lambda_{j,1} = \lambda_{j,2}$. Collecting all local copies into
-$\tilde{\lambda}$ makes the force and torque equilibrium term separable by
-body: each body's residual depends only on its own local contact-force
-variables. The lower-level problem can therefore be reformulated as
+For fixed $q$, the lower-level problem is convex in $\lambda$.
+To apply bodywise ADMM~\cite{boyd2011distributed}, we introduce two local copies $\lambda_{j,1}$ and $\lambda_{j,2}$ per contact, one for each contacting body, including the ground.
+Collecting these copies into $\tilde{\lambda}$ makes each body's equilibrium residual depend only on its local variables.
+Consensus and friction constraints give the reformulation
 \begin{IEEEeqnarray*}{rCl}
   \min_{\tilde{\lambda},z}
   &{\quad}&
@@ -123,9 +110,8 @@ variables. The lower-level problem can therefore be reformulated as
   \lambda_{j,1} = \lambda_{j,2} = z_{j,1} = z_{j,2},
   \qquad j = 1,\ldots,n_c.
 \end{IEEEeqnarray*}
-where $\tilde{f}_\mathrm{phys}(q,\tilde{\lambda})$ is the extended physical force function and $\delta_{K_j}$ is the indicator function of the convex set of feasible contact forces $K_j := \{\lambda \in \real^3 \mid g_{\mathrm{cone},j}(q,\lambda) \leq 0\}$.
-Here, $z_{j,s}$ is an auxiliary variable associated with the $j$-th contact point and $s \in \{1,2\}$.
-At each ADMM iteration, the objectwise-separable subproblem decomposes into $|\placed_{k+1}|$ independent subproblems, one for each object $\object_l$.
+where $\tilde{f}_\mathrm{phys}$ is the physical objective in local variables, $z_{j,s}$ are auxiliary variables, and $\delta_{K_j}$ is the indicator of $K_j := \{\lambda \in \real^3 \mid g_{\mathrm{cone},j}(q,\lambda) \leq 0\}$.
+ADMM solves the body subproblems independently.
 An equivalent four-dimensional second-order cone (SOC) lifting enables closed-form cone projections for the friction updates, while consensus updates reduce to averaging.
 
 The pose optimization module is implemented using CUDA to leverage GPU parallelization for efficient computation of the gradients and the ADMM updates.

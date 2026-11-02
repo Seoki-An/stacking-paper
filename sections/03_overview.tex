@@ -1,4 +1,4 @@
-\section{Overview and Preliminaries} \label{sec:overview}
+\section{Preliminaries and Overview} \label{sec:overview}
 
 \subsection{Shape Representation}
 We represent the target $\target$ and each object $\object_i$ as unions of smooth convex bodies modeled by differentiable support functions (DSFs)~\cite{lee2023uncertain}.
@@ -13,11 +13,12 @@ Similarly, $\target=\bigcup_j\target_j$, where $\target_j$ are fixed convex comp
 DSFs support differentiable signed-distance and contact-geometry computations between posed convex bodies~\cite{an2024riemannianmtd}, enabling gradient-based pose optimization.
 
 % Queue the pose-optimization figure on page 3 after the overview introduction.
-\input{figures/pose_optimization.tex}
+
 \subsection{Markov Decision Process Formulation}
 
 To address the construction objective in Eq.~\eqref{eq:problem_definition}, we model stacking as a finite-horizon sequential decision process in which one object is placed at each step. 
-Let $\scene_k=\{(i,q_i)\mid i\in\placed_k\}$ be the current scene and $\inventory_k=\{1,\ldots,n\}\setminus\placed_k$ the remaining inventory. 
+Let $\placed_k\subseteq\{1,\ldots,n\}$ be the indices of the objects already placed, and let $i_0\notin\{1,\ldots,n\}$ index the fixed ground.
+The current scene is $\scene_k=\{(i,q_i)\mid i\in\placed_k\}$, and the remaining inventory is $\inventory_k=\{1,\ldots,n\}\setminus\placed_k$.
 The state, action, and deterministic transition function are
 \begin{equation*}
     \state_k=(\scene_k,\inventory_k,\target),\quad
@@ -34,18 +35,10 @@ Monte Carlo Tree Search (MCTS) incrementally constructs a search tree $\tree=(\n
 Each node $\node\in\nodes$ represents a state $\state(\node)$, and each edge $(\node,a)\in\edges$ represents an action and its transition to a child node.
 Let $\visit(\node)$ denote the number of completed evaluations and $Q(\node)$ the empirical mean of discounted returns backpropagated to that node.
 
-Each iteration balances value and exploration during \emph{selection}, then generates and evaluates a new action during \emph{expansion} and \emph{evaluation}.
-\emph{Backpropagation} updates $Q(\node)$ and $\visit(\node)$ along the selected path using the discounted return.
+Each iteration selects a path by balancing value and exploration, expands and evaluates an action, and backpropagates its discounted return to update $Q$ and $\visit$.
 
-Our geometry-informed proposals, batched selection, and finite-horizon leaf evaluation are described in Sec.~\ref{sec:sequence_planning}.
-
-\subsection{Overall Structure of the Sequence Planner}
-
-Figure~\ref{fig:overview} illustrates the MCTS sequence planner.
-For each expansion, the initial pose sampler $\initpose$ proposes a candidate action $\hat{\action}_k=(i_{k+1},\hat q_{k+1})$, specifying both the object index and its initial pose.
-The pose optimization module $\poseopt$ refines the pose to obtain $\action_k=(i_{k+1},q_{k+1})$.
-The simulation module $\simul$ evaluates the placement and its effect on the structure, producing the settled successor state before disturbance trials.
-Validity and simulation statistics determine tree admission and reward, giving the execution flow
+In our planner (Fig.~\ref{fig:overview}), expansion uses three modules: $\initpose$ proposes an object and initial pose $\hat{\action}_k=(i_{k+1},\hat q_{k+1})$, $\poseopt$ refines the pose, and $\simul$ evaluates the resulting structure to determine feasibility, the settled successor, and reward.
+The resulting flow is
 \begin{equation*}
 \state_k
 \xrightarrow{\ \initpose\ }
@@ -55,3 +48,4 @@ Validity and simulation statistics determine tree admission and reward, giving t
 \xrightarrow{\ \simul\ }
 \state_{k+1},\ \reward(\state_k,\action_k).
 \end{equation*}
+Sec.~\ref{sec:sequence_planning} describes how these modules are integrated into batched search.
