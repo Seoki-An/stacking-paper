@@ -137,10 +137,11 @@
 \maketitle
 
 \begin{abstract}
-We study automated stacking of irregular objects to approximate prescribed target shapes without support from container walls.
-Our framework combines bilevel pose optimization with batched, receding-horizon Monte Carlo Tree Search (MCTS) over object choices and placement poses.
-The optimizer couples geometric objectives with contact-force optimization to evaluate force and torque equilibrium across the structure under friction constraints, using a bodywise decomposition for GPU parallelization.
-Physical simulation validates placements and supplies settled successor states for multi-step search.
+Stacking irregular objects into prescribed target shapes without container walls requires mutually supporting arrangements despite uneven contact surfaces.
+The problem couples combinatorial object selection and ordering with continuous pose optimization, as each placement redistributes loads and changes support geometry and space available for subsequent objects.
+We propose a framework with two complementary components: structure-aware bilevel pose optimization and parallel Monte Carlo Tree Search (MCTS).
+The optimizer combines target-shape objectives with contact-force optimization to account for force and torque equilibrium across the structure under friction constraints, using bodywise ADMM updates for GPU parallelization.
+The receding-horizon MCTS planner evaluates batches of candidate placements in parallel through pose refinement and physical simulation, providing lookahead over object choices and placement poses.
 We hypothesize that combining structural stability evaluation with lookahead improves target coverage while maintaining stability under a fixed planning budget.
 \end{abstract}
 

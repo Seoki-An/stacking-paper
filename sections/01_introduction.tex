@@ -20,7 +20,7 @@ The final configuration objective is
 c_\text{phys}(\object_1(q_1),\cdots,\object_n(q_n))=0, \nonumber
 \end{gather}
 where $\vol(\cdot)$ denotes volume and $c_\text{phys}=0$ represents stability and non-interpenetration constraints.
-Jointly optimizing all object poses under coupled physical constraints is computationally demanding.
+Constructing such a configuration requires combinatorial choices of objects and placement order together with continuous pose optimization under coupled physical constraints, making joint planning computationally demanding.
 We therefore select one object and optimize its placement at each step, checking the resulting structure's physical feasibility.
 Each placement changes support geometry, free space, and remaining inventory, motivating lookahead beyond immediate placement quality.
 Our central question is how to combine this lookahead with structural stability evaluation in a common framework for different target shapes.
@@ -46,6 +46,6 @@ Evaluations across target shapes and search horizons will examine the applicabil
 The proposed contributions are:
 \begin{itemize}
   \item A bilevel placement optimizer that combines explicit target geometry with contact-force optimization across the structure, using bodywise ADMM updates for GPU computation.
-  \item A batched, receding-horizon stacking planner that integrates pose refinement and physical simulation with multi-step lookahead over object choices and placement poses.
+  \item A receding-horizon MCTS stacking planner that evaluates batches of candidate placements in parallel through pose refinement and physical simulation, providing multi-step lookahead over object choices and placement poses.
 \end{itemize}
 
