@@ -1,0 +1,497 @@
+[
+  {
+    "source": "image1.png",
+    "original": [
+      1316,
+      317
+    ],
+    "exported": [
+      197,
+      47
+    ],
+    "restored": [
+      1316,
+      317
+    ]
+  },
+  {
+    "source": "image2.png",
+    "original": [
+      570,
+      143
+    ],
+    "exported": [
+      94,
+      23
+    ],
+    "restored": [
+      570,
+      143
+    ]
+  },
+  {
+    "source": "image3.png",
+    "original": [
+      901,
+      147
+    ],
+    "exported": [
+      134,
+      21
+    ],
+    "restored": [
+      901,
+      147
+    ]
+  },
+  {
+    "source": "image4.png",
+    "original": [
+      1715,
+      316
+    ],
+    "exported": [
+      257,
+      47
+    ],
+    "restored": [
+      1715,
+      316
+    ]
+  },
+  {
+    "source": "image5.png",
+    "original": [
+      1258,
+      117
+    ],
+    "exported": [
+      188,
+      17
+    ],
+    "restored": [
+      1258,
+      117
+    ]
+  },
+  {
+    "source": "image6.png",
+    "original": [
+      283,
+      98
+    ],
+    "exported": [
+      42,
+      14
+    ],
+    "restored": [
+      283,
+      98
+    ]
+  },
+  {
+    "source": "image7.png",
+    "original": [
+      274,
+      119
+    ],
+    "exported": [
+      41,
+      17
+    ],
+    "restored": [
+      274,
+      119
+    ]
+  },
+  {
+    "source": "image8.png",
+    "original": [
+      285,
+      98
+    ],
+    "exported": [
+      42,
+      14
+    ],
+    "restored": [
+      285,
+      98
+    ]
+  },
+  {
+    "source": "image9.png",
+    "original": [
+      123,
+      140
+    ],
+    "exported": [
+      18,
+      20
+    ],
+    "restored": [
+      123,
+      140
+    ]
+  },
+  {
+    "source": "image10.png",
+    "original": [
+      120,
+      140
+    ],
+    "exported": [
+      17,
+      20
+    ],
+    "restored": [
+      120,
+      140
+    ]
+  },
+  {
+    "source": "image11.png",
+    "original": [
+      124,
+      142
+    ],
+    "exported": [
+      18,
+      21
+    ],
+    "restored": [
+      124,
+      142
+    ]
+  },
+  {
+    "source": "image12.png",
+    "original": [
+      126,
+      140
+    ],
+    "exported": [
+      18,
+      20
+    ],
+    "restored": [
+      126,
+      140
+    ]
+  },
+  {
+    "source": "image13.png",
+    "original": [
+      154,
+      98
+    ],
+    "exported": [
+      23,
+      14
+    ],
+    "restored": [
+      154,
+      98
+    ]
+  },
+  {
+    "source": "image14.png",
+    "original": [
+      155,
+      100
+    ],
+    "exported": [
+      23,
+      14
+    ],
+    "restored": [
+      155,
+      100
+    ]
+  },
+  {
+    "source": "image15.png",
+    "original": [
+      151,
+      98
+    ],
+    "exported": [
+      22,
+      14
+    ],
+    "restored": [
+      151,
+      98
+    ]
+  },
+  {
+    "source": "image16.png",
+    "original": [
+      155,
+      100
+    ],
+    "exported": [
+      23,
+      14
+    ],
+    "restored": [
+      155,
+      100
+    ]
+  },
+  {
+    "source": "image17.png",
+    "original": [
+      157,
+      98
+    ],
+    "exported": [
+      23,
+      14
+    ],
+    "restored": [
+      157,
+      98
+    ]
+  },
+  {
+    "source": "image18.png",
+    "original": [
+      154,
+      100
+    ],
+    "exported": [
+      22,
+      14
+    ],
+    "restored": [
+      154,
+      100
+    ]
+  },
+  {
+    "source": "image19.png",
+    "original": [
+      159,
+      100
+    ],
+    "exported": [
+      23,
+      14
+    ],
+    "restored": [
+      159,
+      100
+    ]
+  },
+  {
+    "source": "image20.png",
+    "original": [
+      155,
+      100
+    ],
+    "exported": [
+      23,
+      14
+    ],
+    "restored": [
+      155,
+      100
+    ]
+  },
+  {
+    "source": "image21.png",
+    "original": [
+      155,
+      100
+    ],
+    "exported": [
+      22,
+      14
+    ],
+    "restored": [
+      155,
+      100
+    ]
+  },
+  {
+    "source": "image22.png",
+    "original": [
+      155,
+      100
+    ],
+    "exported": [
+      23,
+      14
+    ],
+    "restored": [
+      155,
+      100
+    ]
+  },
+  {
+    "source": "image23.png",
+    "original": [
+      1216,
+      149
+    ],
+    "exported": [
+      182,
+      22
+    ],
+    "restored": [
+      1216,
+      149
+    ]
+  },
+  {
+    "source": "image24.png",
+    "original": [
+      2859,
+      1170
+    ],
+    "exported": [
+      428,
+      175
+    ],
+    "restored": [
+      2859,
+      1170
+    ]
+  },
+  {
+    "source": "image25.png",
+    "original": [
+      2614,
+      149
+    ],
+    "exported": [
+      392,
+      22
+    ],
+    "restored": [
+      2614,
+      149
+    ]
+  },
+  {
+    "source": "image26.png",
+    "original": [
+      130,
+      98
+    ],
+    "exported": [
+      19,
+      14
+    ],
+    "restored": [
+      130,
+      98
+    ]
+  },
+  {
+    "source": "image27.png",
+    "original": [
+      126,
+      98
+    ],
+    "exported": [
+      18,
+      14
+    ],
+    "restored": [
+      126,
+      98
+    ]
+  },
+  {
+    "source": "image28.png",
+    "original": [
+      131,
+      100
+    ],
+    "exported": [
+      19,
+      14
+    ],
+    "restored": [
+      131,
+      100
+    ]
+  },
+  {
+    "source": "image29.png",
+    "original": [
+      132,
+      98
+    ],
+    "exported": [
+      19,
+      14
+    ],
+    "restored": [
+      132,
+      98
+    ]
+  },
+  {
+    "source": "image30.png",
+    "original": [
+      1293,
+      364
+    ],
+    "exported": [
+      193,
+      54
+    ],
+    "restored": [
+      1293,
+      364
+    ]
+  },
+  {
+    "source": "image31.png",
+    "original": [
+      874,
+      120
+    ],
+    "exported": [
+      130,
+      17
+    ],
+    "restored": [
+      874,
+      120
+    ]
+  },
+  {
+    "source": "image32.png",
+    "original": [
+      2400,
+      2400
+    ],
+    "exported": [
+      174,
+      124
+    ],
+    "restored": [
+      2400,
+      1714
+    ]
+  },
+  {
+    "source": "image33.png",
+    "original": [
+      1854,
+      1048
+    ],
+    "exported": [
+      192,
+      108
+    ],
+    "restored": [
+      1049,
+      592
+    ]
+  }
+]
