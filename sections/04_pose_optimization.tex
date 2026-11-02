@@ -55,7 +55,8 @@ residual:
   \label{eq:force_objective}
 \end{IEEEeqnarray}
 The three terms respectively penalize violations of static equilibrium, contact complementarity between the candidate and the current scene, and large contact forces through regularization.
-Here, $\sd_j(q)$ is the signed distance between the two bodies associated with contact candidate $j$. $J_{c,I_l}$ is the contact Jacobian for object $\object_l$, $\lambda_{\mathrm{ext},l}$ is its external wrench, and $\lambda_{I_l}$ collects its contact forces. The weighted norm $\|x\|_W^2=x^\top W x$, $W\succ0$, sets the relative force and torque penalties; $w_\mathrm{eq},w_\mathrm{cp},w_\mathrm{reg}>0$ are objective weights.
+Figure~\ref{fig:pose_optimization_toy} illustrates why equilibrium is evaluated across the structure rather than only for the candidate.
+Here, $\sd_j(q)$ is the signed distance between the two bodies associated with contact candidate $j$. $J_{c,I_l}$ is the contact Jacobian for object $\object_l$, $\lambda_{\mathrm{ext},l}$ is its external wrench, $\lambda_{I_l}$ is the vector of contact forces at the contact points in $I_l$, and $w_\mathrm{eq},w_\mathrm{cp},w_\mathrm{reg}>0$ are objective weights.
 
 Finally, each $g_{\mathrm{cone},j}(\cdot)$ is the smoothed friction cone
 constraints for the $j$-th contact point defined by
@@ -63,7 +64,9 @@ constraints for the $j$-th contact point defined by
   g_{\mathrm{cone},j}(q, \lambda_j) = \sqrt{\|J_{c,j}^t \lambda_j \|^2 + \epsilon} - \mu_j  J_{c,j}^n \lambda_j
   \label{eq:friction_cone}
 \end{equation}
-where $\epsilon > 0$ is a sufficiently small smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint.
+where $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint.
+
+\input{figures/pose_optimization_toy.tex}
 
 \subsection{Upper-Level Problem Optimization on SE(3) Manifold}
 

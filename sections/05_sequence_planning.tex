@@ -1,6 +1,6 @@
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\columnwidth]{figures/initial_pose_sampling.pdf}
+  \includegraphics[width=\columnwidth]{figures/initial_pose_sampling.eps}
   \caption{Initial pose sampling for a fixed object and orientation: (a) scene height, (b) proposal score and sampled planar location, and (c) initial pose $\hat q$ above the scene. Magenta links the sampled location and candidate object.}
   \label{fig:score_map}
 \end{figure}
@@ -99,7 +99,8 @@ The maximum spans predefined disturbances, objects $l$ in this local dynamic nei
 % Those variants are not interchangeable with a parent-to-successor union delta.
 
 \subsection{Monte Carlo Tree Search}
-We use batched, receding-horizon MCTS with parallel evaluation~\cite{huang2022pmbs} (Fig.~\ref{fig:overview}).
+We integrate these modules in batched, receding-horizon MCTS (Fig.~\ref{fig:overview}), following the parallel evaluation approach of~\cite{huang2022pmbs}.
+Figure~\ref{fig:mcts_example} shows a recorded comparison with greedy placement.
 
 \noindent \textbf{Batched Selection.}
 For an optimized action $a=(i,q)$, let $\rho_\object^{\mathrm{pre}}$ denote the object-volume ratio evaluated at $q$, before simulation. Using the reward weights, the logit $\ell(a)=w_\object\rho_\object^{\mathrm{pre}}-w_E e(a)$ defines $P(\node_p,a)$ through a softmax over selectable children. Writing $N_n=N(n)$ and similarly for $Q_n$ and $\hat N_n$, an evaluated child $n$ of $n_p$ is selected using PUCT~\cite{silver2017mastering}:
@@ -126,14 +127,21 @@ We replace rollouts with a discounted per-step reward heuristic, capped by depth
 % Each future reward receives one discount per edge; at the depth limit B=0.
 
 \noindent \textbf{Action Selection and Tree Reuse.}
-Evaluated feasible root actions are ranked by $(1-\alpha)Q(\node_a)+\alpha G_{\mathrm{obs}}(\node_a)$, $\alpha\in[0,1]$. Here $G_{\mathrm{obs}}$ is the best discounted return on each candidate's deepest evaluated feasible paths within the horizon, without bootstrap; root-only paths contribute their immediate reward.
+After search, we select an action using only the evaluated tree.
+Let $\depth$ be the required number of descendant edges below a root candidate, capped by the remaining search horizon.
+For a root action $a$, let $G_{\depth}(a)$ be the maximum discounted return over existing feasible paths reaching this depth, including the reward of $a$; successful terminal states may end a path earlier.
+Among root actions with such a path, we maximize
+\begin{equation*}
+  J(a)=(1-\beta)Q(\node_a)+\beta G_{\depth}(a),\qquad \beta\in[0,1].
+\end{equation*}
+The depth requirement is independent of $\beta$.
+If no root action satisfies it, we select the physically feasible root action with the highest mean return.
+If no physically feasible root action exists, the planner returns no placement.
 
-After execution, we retain successor subtrees with matching states and planning contexts. Other subtrees and branches with relaxed layer admission are discarded, resetting statistics before reuse.
-% No feasible root action yields no placement. Depth is prioritized within each
-% candidate's subtree, not across root candidates; ties use observed return.
-% Failure penalties and bootstrap remain in Q, not in G_obs. Current alpha=0.5.
-% A state/context mismatch discards the affected subtree and its statistics.
-% If a parent has relaxed children, all its children are cleared; pruning resets
-% statistics recursively from the search root while preserving the committed scene.
-% Reused visit statistics may be reset separately; retaining transitions does
-% not require retaining Q/N.
+After execution, we advance the root to the observed successor.
+Evaluated descendants are retained when this state and the planning context match those used to construct the subtree; otherwise, the affected subtree and its statistics are discarded.
+% Current CUDA defaults: beta=0.5 and \depth=2, capped by the remaining horizon.
+% G_{\depth} uses evaluated rewards without a leaf bootstrap. Reused visit statistics
+% may be reset separately; retaining transitions does not require retaining Q/N.
+
+\input{figures/mcts_example.tex}

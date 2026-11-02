@@ -1,0 +1,39 @@
+{
+  "mcts_example": {
+    "page_size": [
+      0.0,
+      0.0,
+      720.0,
+      239.0
+    ],
+    "images": []
+  },
+  "initial_pose_sampling": {
+    "page_size": [
+      0.0,
+      0.0,
+      720.0,
+      272.0
+    ],
+    "images": [
+      [
+        1332,
+        1166
+      ]
+    ]
+  },
+  "pose_optimization_toy": {
+    "page_size": [
+      0.0,
+      0.0,
+      720.0,
+      306.0
+    ],
+    "images": [
+      [
+        4800,
+        1800
+      ]
+    ]
+  }
+}
