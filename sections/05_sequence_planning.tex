@@ -63,7 +63,7 @@ For the newly placed object $i=i_{k+1}$, let $q_i'$ be its pose in the settled s
  \quad
  \rho_\object=\frac{\vol\bigl(\object_i(q_i')\cap\target\bigr)}{\vol(\object_i)}.
 \end{equation*}
-The $\rho_\target$ term encourages target filling toward the objective in Eq.~\eqref{eq:problem_definition}, while $\rho_\object$ discourages placements extending excessively outside the target. Intersection volumes are estimated on a voxel grid. With fixed normalization scales absorbed into positive weights, the standard excavator reward is
+The $\rho_\target$ term encourages target filling toward the objective in Eq.~\eqref{eq:problem_definition}, while $\rho_\object$ discourages placements extending excessively outside the target. Intersection volumes are estimated on a voxel grid. Failed transitions receive $r(\state,\action)=-1$. For feasible transitions, with fixed normalization scales absorbed into positive weights, the reward is
 \begin{equation*}
 \begin{split}
  r(\state,\action)={}&w_\target\rho_\target+w_\object[\rho_\object-\tfrac12]_+
@@ -126,11 +126,22 @@ Temporary reservations prevent duplicate evaluations within a batch without incr
 After batch selection, fresh proposals pass through $\initpose\to\poseopt\to\simul$. Independent candidates are processed in parallel; selection never descends through an action without an evaluated successor. Failed candidates are excluded from further selection.
 
 \noindent \textbf{Leaf Value Estimation and Backpropagation.}
-We replace rollouts with a discounted per-step reward heuristic, capped by depth and remaining inventory. Terminal, failed, and depth-limit leaves receive no bootstrap; exhausted shallower nonterminal leaves are not repeatedly backed up. Failures incur a discounted fixed per-step penalty over the remaining horizon, capped by inventory. Backpropagation updates $Q$ and $N$ and clears temporary reservations.
-% B = mu * sum_{j=0}^{h-1} gamma^j,
-% h = min(H_B, d_M - d_leaf, remaining inventory).
-% Pass B directly to backup: the leaf sample is r + gamma * B.
-% Each future reward receives one discount per edge; at the depth limit B=0.
+We replace rollouts with a heuristic estimate of future rewards:
+\begin{equation*}
+ \hat V(n)=
+ \begin{cases}
+  0, & \text{if failed or terminal},\\
+  \hat{r}\sum_{j=0}^{H_n-1}\gamma^j, & \text{otherwise},
+ \end{cases}
+\end{equation*}
+where $\hat{r}$ is a prescribed per-step reward estimate and $H_n$ is capped by the remaining search depth and inventory.
+At the depth limit, $H_n=0$ and the sum is zero.
+Backup starts from $r_n+\gamma\hat V(n)$, where $r_n$ is the incoming action's reward, and recursively adds ancestor rewards with discount $\gamma$, updating $Q$, $N$, and clearing temporary reservations.
+% H_n = min(configured bootstrap horizon, remaining depth, remaining inventory).
+% The native bootstrap excludes r_n and its first-edge discount, as above.
+% The failure override in backup is equivalent to r_n=-1 and Vhat(n)=0.
+% Failure passes -1 to ancestors; the unselectable failed node itself records zero.
+% Exhausted shallower nonterminal leaves are not repeatedly backed up.
 
 \noindent \textbf{Action Selection and Tree Reuse.}
 After search, we select an action using only the evaluated tree.
