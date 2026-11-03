@@ -57,7 +57,8 @@ residual:
 \end{IEEEeqnarray}
 The three terms respectively penalize violations of static equilibrium, contact complementarity between the candidate and the current scene, and large contact forces through regularization.
 Figure~\ref{fig:pose_optimization_toy} illustrates why equilibrium is evaluated across the structure rather than only for the candidate.
-Here, $\sd_j(q)$ is the signed distance between the two bodies associated with contact candidate $j$. $J_{c,I_l}$ is the contact Jacobian for object $\object_l$, $\lambda_{\mathrm{ext},l}$ is its external wrench, $\lambda_{I_l}$ is the vector of contact forces at the contact points in $I_l$, and $w_\mathrm{eq},w_\mathrm{cp},w_\mathrm{reg}>0$ are objective weights.
+The weight matrix $W\succ0$ balances force and moment scales.
+Here, $\sd_j(q)$ is the signed distance between the bodies of contact candidate $j$; $J_{c,I_l}$, $\lambda_{\mathrm{ext},l}$, and $\lambda_{I_l}$ are object $\object_l$'s contact Jacobian, external wrench, and contact-force vector, respectively; and $w_\mathrm{eq},w_\mathrm{cp},w_\mathrm{reg}>0$ are objective weights.
 
 Finally, each $g_{\mathrm{cone},j}(\cdot)$ is the smoothed friction cone
 constraints for the $j$-th contact point defined by

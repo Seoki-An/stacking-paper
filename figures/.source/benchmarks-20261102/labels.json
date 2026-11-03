@@ -1,8 +1,0 @@
-{
-  "seesaw_structure": "(a) Structure-wide",
-  "seesaw_single": "(b) Candidate-only",
-  "mcts_title": "(a) MCTS",
-  "greedy_title": "(b) Greedy",
-  "mcts_metric": "19 stones; 44.0\\% target coverage",
-  "greedy_metric": "14 stones; 36.1\\% target coverage"
-}
