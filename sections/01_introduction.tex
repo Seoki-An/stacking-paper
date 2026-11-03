@@ -1,10 +1,10 @@
 \section{Introduction} \label{sec:introduction}
 
-Robotic packing methods accommodate irregular objects while considering packing density, stability, and placement feasibility~\cite{wang2022binpacking,huang2023binpacking}.
-Constructing freestanding structures from natural stones requires finding mutually supporting arrangements among uneven surfaces while achieving a prescribed target shape without support from container walls.
+Robotic packing has been widely studied for warehouse automation, achieving dense, stable arrangements of irregular objects within containers~\cite{wang2022binpacking,huang2023binpacking}.
+Unlike packing within containers, freestanding stacking must achieve a prescribed target shape through mutual support among objects, without relying on container walls.
+Such capabilities are important for dry-stone construction and could also support compact storage of bulky, irregular raw materials in industrial settings.
 
-Several stone-stacking methods use placement criteria developed for particular construction settings, including tower-building objectives~\cite{furrer2017stacking} and masonry-inspired geometric rules~\cite{johns2020autonomous,liu2021drystacking}.
-For example, Johns et al. generate candidates where target wall surfaces meet the existing structure and apply inward-slope heuristics~\cite{johns2020autonomous}.
+Existing automated stone-stacking methods use criteria tailored to particular construction settings: tower-building objectives~\cite{furrer2017stacking}, wall-surface intersections and inward-slope heuristics~\cite{johns2020autonomous}, or masonry-inspired geometric rules~\cite{liu2021drystacking}.
 Extensions to freeform walls~\cite{johns2023framework} broaden wall geometry; more general targets motivate objectives that use target geometry without wall-specific placement rules.
 Structural stability also requires reasoning beyond the support of the newly placed object: its load can affect the equilibrium of objects beneath it.
 Liu and Napp~\cite{liu2023stability} explicitly address structural strength during planning, demonstrating the value of evaluating the structure as a whole.

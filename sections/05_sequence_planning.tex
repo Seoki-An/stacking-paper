@@ -8,13 +8,15 @@
 \section{Sequence Planning} \label{sec:sequence_planning}
 
 \subsection{Initial Pose Sampling}
-The sampler $\initpose$ uses volume-biased object sampling with a finite orientation set per object. It favors lower placements and seeds empty scenes near feasible target corners. For object $i$, orientation $R$, and feasible planar location $\planar$, the score is
+The sampler $\initpose$ uses volume-biased object sampling with a finite orientation set per object. It favors lower placements and seeds empty scenes near feasible target corners. For object $i$, orientation $R$, and feasible planar location $\planar$, the score (Fig.~\ref{fig:score_map}) is
 \begin{equation*}
   \score(\planar\mid i,R)
   =w_\text{s}\score_\text{s}+w_\text{f}\score_\text{f}
    +w_\text{b}\score_\text{b}-w_\text{h}\score_\text{h}-w_\text{d}\score_\text{d},
 \end{equation*}
-with positive weights. The first four terms measure the fraction of bottom samples near predicted contact, unfilled layer area beneath the footprint, proximity to the feasible placement boundary, and normalized mean contact height, respectively. A bounded penalty $\score_\text{d}$ on the planar footprint gap to the preceding object favors nearby placements, helping MCTS assess interactions between successive objects without excluding distant proposals. It is zero for the first placement. The floor and boundary preferences are inspired by Menezes et al.~\cite{menezes2021rocks}. Figure~\ref{fig:score_map} illustrates the proposal score and sampled initial pose.
+with positive weights. The first four terms measure the fraction of bottom samples near predicted contact, unfilled layer area beneath the footprint, proximity to the feasible placement boundary, and normalized mean contact height, respectively.
+A bounded penalty $\score_\text{d}$ on the planar footprint gap to the preceding object (zero for the first placement) encourages nearby placements, helping MCTS assess their interactions without excluding distant proposals.
+Inspired by Menezes et al.~\cite{menezes2021rocks}, the floor and boundary terms encourage filling empty layer regions and building inward from the boundary.
 
 We combine elite selection with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$. Proposals start above the scene with clearance and undergo $\poseopt$ refinement, including XY/yaw mutations at the root. Heuristic filters limit planar displacement from each initial pose after optimization and settling, and screen out candidates whose bottoms lie too far above the current construction level.
 % Distance penalty: sigma_d = [d_prev - delta]_+ / (L + [d_prev - delta]_+),
@@ -34,22 +36,21 @@ We combine elite selection with sampling without replacement weighted by $\exp(\
 % Composite sampling uses region-local layers and elite/Boltzmann draws.
 
 \subsection{Simulation Module}\label{sec:simulation}
-The module $\simul$ evaluates every proposed transition using the same simulation procedure at all search depths.
-It first settles the new object for a fixed duration while holding the existing objects static.
-From the resulting poses, it resets velocities and simulates the entire structure's response to the added load.
+The module $\simul$ uses the same simulation procedure at every search depth.
+It settles the new object for a fixed duration with existing objects fixed, then resets velocities and simulates the entire structure's response to the added load.
 Structural simulation requires a minimum duration and sustained low mass-normalized kinetic energy.
 Excessive accumulated motion, invalid contacts, or failure to settle within the time limit rejects the placement.
 
-For an accepted nominal simulation, the settled scene defines the successor $\state'=\transition(\state,\action)$.
+The accepted settled scene defines the successor $\state'=\transition(\state,\action)$.
 Each disturbance trial starts from rest in this scene and applies a horizontal force at the new object's center of mass:
 \begin{equation*}
  \mathbf F_j=\alpha m_{i_{k+1}}g\bigl(\cos\theta_j,\;\sin\theta_j,\;0\bigr)^\top,
 \end{equation*}
 where $\theta_j=2\pi j/n_d$ for $j=0,\ldots,n_d-1$, $\alpha>0$ sets the force relative to object weight, and $g$ is gravitational acceleration.
-The force acts for a prescribed duration $\Delta t_f$ and is then removed to observe recovery, with all placed objects remaining dynamic throughout.
+The force is removed after $\Delta t_f$ to observe recovery; all placed objects remain dynamic throughout.
 Every trial must recover within prescribed tolerances without excessive pose excursion.
 These trials assess structural robustness without changing $\state'$.
-Simulation uses CUDA subADMM~\cite{ji2025gpu}.
+GPU-accelerated subADMM~\cite{ji2025gpu} enables parallel candidate simulation, complementing the parallel pose optimizer for batched MCTS evaluation.
 % Quiet proxy: e_l = 2 K_l / m_l; motion integral = integral sqrt(e_l) dt.
 % Excavator force probes: alpha=0.05, Delta t_f=1 s, n_d=8, contact_hops=null.
 % Force is applied only at the candidate COM, without an applied torque.
@@ -131,13 +132,12 @@ We replace rollouts with a heuristic estimate of future rewards:
  \hat V(n)=
  \begin{cases}
   0, & \text{if failed or terminal},\\
-  \hat{r}\sum_{j=0}^{H_n-1}\gamma^j, & \text{otherwise},
+  \hat{r}\sum_{j=0}^{\depth_n-1}\gamma^j, & \text{otherwise},
  \end{cases}
 \end{equation*}
-where $\hat{r}$ is a prescribed per-step reward estimate and $H_n$ is capped by the remaining search depth and inventory.
-At the depth limit, $H_n=0$ and the sum is zero.
+where $\hat{r}$ is a prescribed per-step reward estimate and $\depth_n$ the bootstrap horizon, capped by remaining depth and inventory (zero at the depth limit).
 Backup starts from $r_n+\gamma\hat V(n)$, where $r_n$ is the incoming action's reward, and recursively adds ancestor rewards with discount $\gamma$, updating $Q$, $N$, and clearing temporary reservations.
-% H_n = min(configured bootstrap horizon, remaining depth, remaining inventory).
+% \depth_n = min(configured bootstrap horizon, remaining depth, remaining inventory).
 % The native bootstrap excludes r_n and its first-edge discount, as above.
 % The failure override in backup is equivalent to r_n=-1 and Vhat(n)=0.
 % Failure passes -1 to ancestors; the unselectable failed node itself records zero.
