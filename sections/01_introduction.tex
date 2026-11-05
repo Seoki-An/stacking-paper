@@ -12,7 +12,7 @@ However, assessing the current structure alone does not determine how a placemen
 Menezes et al.~\cite{menezes2021rocks} address sequential placement through learned action values that account for future rewards, with a prescribed object sequence and fixed orientations.
 We investigate explicit lookahead over object choices and placement poses, coupled with structural stability evaluation and target-shape objectives.
 
-We consider stacking a finite inventory of $n$ irregular objects to approximate a target shape $\target\subset\real^3$.
+We consider stacking a finite inventory of $N$ irregular objects to approximate a target shape $\target\subset\real^3$.
 Let $\object_i(q_i)\subset\real^3$ denote the volume occupied by object $i$ at pose $q_i\in\SE(3)$.
 The final configuration objective is
 \begin{gather}
@@ -45,7 +45,7 @@ Comparisons with greedy placement and candidate-only stability evaluation will t
 Evaluations across target shapes and search horizons will examine the applicability of the common formulation and its computational tradeoffs.
 The proposed contributions are:
 \begin{itemize}
-  \item A bilevel placement optimizer that combines explicit target geometry with contact-force optimization across the structure, using bodywise ADMM updates for GPU computation.
+  \item A bilevel pose optimization that combines explicit target geometry with contact-force optimization across the structure, using bodywise ADMM updates for GPU computation.
   \item A receding-horizon MCTS stacking planner that evaluates batches of candidate placements in parallel through pose refinement and physical simulation, providing multi-step lookahead over object choices and placement poses.
 \end{itemize}
 

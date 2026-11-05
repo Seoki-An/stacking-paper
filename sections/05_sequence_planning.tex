@@ -110,11 +110,11 @@ We integrate these modules in batched, receding-horizon MCTS (Fig.~\ref{fig:over
 Figure~\ref{fig:mcts_example} shows a recorded comparison with greedy placement.
 
 \noindent \textbf{Batched Selection.}
-For an optimized action $a=(i,q)$, let $\rho_\object^{\mathrm{pre}}$ denote the object-volume ratio evaluated at $q$, before simulation. Using the reward weights, the logit $\ell(a)=w_\object\rho_\object^{\mathrm{pre}}-w_E e(a)$ defines $P(\node_p,a)$ through a softmax over selectable children. Writing $N_n=N(n)$ and similarly for $Q_n$ and $\hat N_n$, an evaluated child $n$ of $n_p$ is selected using PUCT~\cite{silver2017mastering}:
+For an optimized action $a=(i,q)$, let $\rho_\object^{\mathrm{pre}}$ denote the object-volume ratio evaluated at $q$, before simulation. Using the reward weights, the logit $\ell(a)=w_\object\rho_\object^{\mathrm{pre}}-w_E e(a)$ defines $P(\node_p,a)$ through a softmax over selectable children. Writing $N_{\node}=N(\node)$ and similarly for $Q_{\node}$ and $\hat N_{\node}$, an evaluated child $\node$ of $\node_p$ is selected using PUCT~\cite{silver2017mastering}:
 \begin{equation}
-    \puct(n)=\frac{N_nQ_n}{N_n+\hat N_n}
-    +cP(n_p,a)\frac{\sqrt{N_{n_p}+\hat N_{n_p}}}
-         {1+N_n+\hat N_n},
+    \puct(\node)=\frac{N_{\node}Q_{\node}}{N_{\node}+\hat N_{\node}}
+    +cP(\node_p,a)\frac{\sqrt{N_{\node_p}+\hat N_{\node_p}}}
+         {1+N_{\node}+\hat N_{\node}},
     \label{eq:puct}
 \end{equation}
 % tree_policy.selection_score requires positive effective parent visits;
@@ -129,17 +129,17 @@ After batch selection, fresh proposals pass through $\initpose\to\poseopt\to\sim
 \noindent \textbf{Leaf Value Estimation and Backpropagation.}
 We replace rollouts with a heuristic estimate of future rewards:
 \begin{equation*}
- \hat V(n)=
+ \hat V(\node)=
  \begin{cases}
   0, & \text{if failed or terminal},\\
-  \hat{r}\sum_{j=0}^{\depth_n-1}\gamma^j, & \text{otherwise},
+  \hat{r}\sum_{j=0}^{\depth_{\node}-1}\gamma^j, & \text{otherwise},
  \end{cases}
 \end{equation*}
-where $\hat{r}$ is a prescribed per-step reward estimate and $\depth_n$ the bootstrap horizon, capped by remaining depth and inventory (zero at the depth limit).
-Backup starts from $r_n+\gamma\hat V(n)$, where $r_n$ is the incoming action's reward, and recursively adds ancestor rewards with discount $\gamma$, updating $Q$, $N$, and clearing temporary reservations.
-% \depth_n = min(configured bootstrap horizon, remaining depth, remaining inventory).
-% The native bootstrap excludes r_n and its first-edge discount, as above.
-% The failure override in backup is equivalent to r_n=-1 and Vhat(n)=0.
+where $\hat{r}$ is a prescribed per-step reward estimate and $\depth_{\node}$ the bootstrap horizon, capped by remaining depth and inventory (zero at the depth limit).
+Backup starts from $r_{\node}+\gamma\hat V(\node)$, where $r_{\node}$ is the incoming action's reward, and recursively adds ancestor rewards with discount $\gamma$, updating $Q$, $N$, and clearing temporary reservations.
+% \depth_{\node} = min(configured bootstrap horizon, remaining depth, remaining inventory).
+% The native bootstrap excludes r_{\node} and its first-edge discount, as above.
+% The failure override in backup is equivalent to r_{\node}=-1 and Vhat(\node)=0.
 % Failure passes -1 to ancestors; the unselectable failed node itself records zero.
 % Exhausted shallower nonterminal leaves are not repeatedly backed up.
 

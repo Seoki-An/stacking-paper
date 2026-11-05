@@ -1,6 +1,6 @@
 \begin{figure*}[t]
   \centering
   \includegraphics[width=0.968\textwidth]{figures/overview.pdf}
-  \caption{Batched MCTS sequence planning. Colored requests are evaluated in parallel. Returns combine rewards and discounted leaf estimates. The dashed branch backpropagates its failure penalty once ($r_4=-1$, $\hat V(n_9)=0$) and is never selected again. After search, $J(a)$ ranks eligible root actions. See Sec.~\ref{sec:mcts} for $\hat V(n)$ and $J(a)$.}
+  \caption{Batched MCTS sequence planning. Colored requests are evaluated in parallel. Returns combine rewards and discounted leaf estimates. The dashed branch backpropagates its failure penalty once ($r_4=-1$, $\hat V(\node_9)=0$) and is never selected again. After search, $J(a)$ ranks eligible root actions. See Sec.~\ref{sec:mcts} for $\hat V(\node)$ and $J(a)$.}
   \label{fig:overview}
 \end{figure*}
