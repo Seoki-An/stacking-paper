@@ -18,7 +18,7 @@ with positive weights. The first four terms measure the fraction of bottom sampl
 A bounded penalty $\score_\text{d}$ on the planar footprint gap to the preceding object (zero for the first placement) encourages nearby placements, helping MCTS assess their interactions without excluding distant proposals.
 Inspired by Menezes et al.~\cite{menezes2021rocks}, the floor and boundary terms encourage filling empty layer regions and building inward from the boundary.
 
-We combine elite selection with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$. Proposals start above the scene with clearance and undergo $\poseopt$ refinement, including XY/yaw mutations at the root. Heuristic filters limit planar displacement from each initial pose after optimization and settling, and screen out candidates whose bottoms lie too far above the current construction level.
+We combine elite selection with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$. Proposals start above the scene with clearance and undergo $\poseopt$ refinement, including XY/yaw mutations at the root. Heuristic filters limit planar displacement from each initial pose after optimization and settling, and screen out candidates whose bottoms lie too far above the current construction level or whose equilibrium residual is too large (defined below).
 % Distance penalty: sigma_d = [d_prev - delta]_+ / (L + [d_prev - delta]_+),
 % using the convex XY footprint gap and L = cube root of mean inventory volume.
 % XY displacement limit: eta * volume(candidate)^(1/3).
@@ -77,11 +77,14 @@ where $[x]_+=\max(x,0)$, so the containment bonus is active above $50\%$. Covera
 
 The equilibrium score uses residual forces $\mathbf f_l$ and torques $\boldsymbol\tau_l$ returned by pose optimization:
 \begin{equation*}
- e(\action)=\min\!\left\{1,\max_l\left(
+ e(\action)=\max_l\left(
  \frac{\|\mathbf f_l\|}{m_lg}
- +\frac{\|\boldsymbol\tau_l\|}{m_lg\vol(\object_l)^{1/3}}\right)\right\}.
+ +\frac{\|\boldsymbol\tau_l\|}{m_lg\vol(\object_l)^{1/3}}\right).
 \end{equation*}
 Here $l$ indexes objects in the resulting structure and $g$ is gravitational acceleration.
+Candidates with $e(\action)\geq\epsilon_\mathrm{eq}$ are rejected after pose optimization, before simulation, so the equilibrium term ranks only admitted placements.
+% epsilon_eq = 0.1 on both platforms (posegen_equilibrium_threshold; e = epsilon_eq is rejected).
+% Reward/prior code also clips e at 1; inactive for admitted candidates since epsilon_eq < 1.
 Let $q_l^{(j)}(t)$ denote object $l$'s pose during force trial $j$ (Sec.~\ref{sec:simulation}), starting from its nominal successor pose $q_l'$.
 Disturbance sensitivity is
 \begin{equation*}
@@ -144,18 +147,19 @@ Backup starts from $r_{\node}+\gamma\hat V(\node)$, where $r_{\node}$ is the inc
 % Exhausted shallower nonterminal leaves are not repeatedly backed up.
 
 \noindent \textbf{Action Selection and Tree Reuse.}
-After search, we select an action using only the evaluated tree.
-Let $\depth$ be the required number of descendant edges below a root candidate, capped by the remaining search horizon.
-For a root action $a$, let $G_{\depth}(a)$ be the maximum discounted return over existing feasible paths reaching this depth, including the reward of $a$.
-Among root actions with such a path, we maximize
+For each feasible root action $a$, let $G(a)$ be the maximum discounted observed return among its deepest evaluated feasible paths within the search horizon, including $a$'s reward and excluding bootstrap values.
+Root-only paths are eligible. We select the action maximizing
 \begin{equation*}
-  J(a)=(1-\beta)Q(\node_a)+\beta G_{\depth}(a),\qquad \beta\in[0,1].
+  J(a)=(1-\beta)Q(\node_a)+\beta G(a),\qquad \beta\in[0,1].
 \end{equation*}
 The path-return term counterbalances failures accumulated during exploration, which can depress the mean even when a promising feasible path exists.
-If no root action meets the depth requirement, we select the feasible root action with the highest mean return, or return no placement if none is feasible.
+If no root action is feasible, we return no placement.
 
 After execution, we advance the root to the observed successor.
 Evaluated descendants are retained when this state and the planning context match those used to construct the subtree; otherwise, the affected subtree and its statistics are discarded.
-% Current CUDA defaults: beta=0.5 and \depth=2, capped by the remaining horizon.
-% G_{\depth} uses evaluated rewards without a leaf bootstrap. Reused visit statistics
+% Current CUDA defaults: beta=0.5 and min_feasible_depth=1 (root action depth).
+% Within each root subtree, depth takes priority and return breaks depth ties.
+% An optional larger minimum depth filters roots when any qualify; fallback
+% still uses the same mixed score. It is inactive in the default profile.
+% G uses evaluated rewards without a leaf bootstrap. Reused visit statistics
 % may be reset separately; retaining transitions does not require retaining Q/N.
