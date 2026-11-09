@@ -14,5 +14,10 @@
 *.bcf
 .*
 
+# Share Claude Code agents (e.g., reviewer personas); keep other local settings out
+!.claude/
+.claude/*
+!.claude/agents/
+
 # Local editable figure sources (keep on disk, exclude from Git)
 .source/
