@@ -12,7 +12,7 @@ Achieving these requirements simultaneously is challenging because changing one 
 Moreover, a placement that fits well and is stable at the current stage may limit how closely the completed structure can approximate the target shape.
 Planning its construction therefore involves combinatorial choices of objects and placement order, together with iterative numerical evaluation of contact interactions~\cite{furrer2017stacking}, making planning computationally expensive.
 
-To solve this problem, we parallelize 
+To solve this problem, we propose a framework that couples a novel GPU-accelerated bilevel pose optimization that accounts for both target shape construction and contact-force equilibrium with parallel Monte Carlo Tree Search (MCTS) which evaluates batches of stone placements in parallel through the GPU-accelerated pose optimization and physical simulation.
 
 % Stacking is a fundamental problem with applications in bin packing, industrial warehouse storage~\cite{wang2022binpacking,huang2023binpacking}, and stone-wall construction~\cite{johns2020autonomous}.
 % In freestanding stacking, the resulting structure must approximate a prescribed target shape while maintaining force and torque equilibrium under contact forces and gravity, without support from an enclosing container.
