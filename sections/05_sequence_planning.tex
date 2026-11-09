@@ -64,7 +64,7 @@ For the newly placed object $i=i_{k+1}$, let $q_i'$ be its pose in the settled s
  \quad
  \rho_\object=\frac{\vol\bigl(\object_i(q_i')\cap\target\bigr)}{\vol(\object_i)}.
 \end{equation*}
-The $\rho_\target$ term encourages target filling toward the objective in Eq.~\eqref{eq:problem_definition}, while $\rho_\object$ discourages placements extending excessively outside the target. Intersection volumes are estimated on a voxel grid. Failed transitions receive $r(\state,\action)=-1$. For feasible transitions, with fixed normalization scales absorbed into positive weights, the reward is
+Here $\vol(\cdot)$ denotes volume. The $\rho_\target$ term encourages target filling, while $\rho_\object$ discourages placements extending excessively outside the target. Intersection volumes are estimated on a voxel grid. Failed transitions receive $r(\state,\action)=-1$. For feasible transitions, with fixed normalization scales absorbed into positive weights, the reward is
 \begin{equation*}
 \begin{split}
  r(\state,\action)={}&w_\target\rho_\target+w_\object[\rho_\object-\tfrac12]_+

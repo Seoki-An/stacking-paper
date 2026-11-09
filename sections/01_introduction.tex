@@ -1,29 +1,46 @@
 \section{Introduction} \label{sec:introduction}
 
-Robotic packing has been widely studied for warehouse automation, achieving dense, stable arrangements of irregular objects within containers~\cite{wang2022binpacking,huang2023binpacking}.
-Unlike packing within containers, freestanding stacking must achieve a prescribed target shape through mutual support among objects, without relying on container walls.
-Such capabilities are important for dry-stone construction and could also support compact storage of bulky, irregular raw materials in industrial settings.
-
-Existing automated stone-stacking methods use criteria tailored to particular construction settings: tower-building objectives~\cite{furrer2017stacking}, wall-surface intersections and inward-slope heuristics~\cite{johns2020autonomous}, or masonry-inspired geometric rules~\cite{liu2021drystacking}.
-Extensions to freeform walls~\cite{johns2023framework} broaden wall geometry; more general targets motivate objectives that use target geometry without wall-specific placement rules.
-Structural stability also requires reasoning beyond the support of the newly placed object: its load can affect the equilibrium of objects beneath it.
-Liu and Napp~\cite{liu2023stability} explicitly address structural strength during planning, demonstrating the value of evaluating the structure as a whole.
-However, assessing the current structure alone does not determine how a placement affects future support and space utilization.
-Menezes et al.~\cite{menezes2021rocks} address sequential placement through learned action values that account for future rewards, with a prescribed object sequence and fixed orientations.
-We investigate explicit lookahead over object choices and placement poses, coupled with structural stability evaluation and target-shape objectives.
-
-We consider stacking a finite inventory of $n$ irregular objects to approximate a target shape $\target\subset\real^3$.
-Let $\object_i(q_i)\subset\real^3$ denote the volume occupied by object $i$ at pose $q_i\in\SE(3)$.
-The final configuration objective is
+Stacking is a fundamental problem with applications in bin packing, industrial warehouse storage~\cite{wang2022binpacking,huang2023binpacking}, and stone-wall construction~\cite{johns2020autonomous}.
+In freestanding stacking, the resulting structure must approximate a prescribed target shape while maintaining force and torque equilibrium under contact forces and gravity, without support from an enclosing container.
+For $n$ irregular objects, this geometric goal can be expressed as minimizing the unfilled volume of a target shape $\target\subset\real^3$, subject to physical feasibility:
 \begin{gather}
 \min_{q_1,\cdots,q_n\in\SE(3)} \vol\left(\target\backslash\bigcup_{i=1}^{n}\object_i(q_i)\right)\quad\text{s.t.} \label{eq:problem_definition}\\
 c_\text{phys}(\object_1(q_1),\cdots,\object_n(q_n))=0, \nonumber
 \end{gather}
-where $\vol(\cdot)$ denotes volume and $c_\text{phys}=0$ represents stability and non-interpenetration constraints.
-Constructing such a configuration requires combinatorial choices of objects and placement order together with continuous pose optimization under coupled physical constraints, making joint planning computationally demanding.
-We therefore select one object and optimize its placement at each step, checking the resulting structure's physical feasibility.
-Each placement changes support geometry, free space, and remaining inventory, motivating lookahead beyond immediate placement quality.
-Our central question is how to combine this lookahead with structural stability evaluation in a common framework for different target shapes.
+where $\object_i(q_i)\subset\real^3$ is the region occupied by object $i$ at pose $q_i\in\SE(3)$, $\vol(\cdot)$ denotes volume, and $c_\text{phys}=0$ represents stability and non-interpenetration constraints.
+Achieving these requirements simultaneously is challenging because changing one object pose alters both the occupied space and the contact geometry through which loads are transmitted across the structure.
+Moreover, a placement that fits well and is stable at the current stage may limit how closely the completed structure can approximate the target shape.
+Planning its construction therefore involves combinatorial choices of objects and placement order, together with iterative numerical evaluation of contact interactions~\cite{furrer2017stacking}, making planning computationally expensive.
+
+To solve this problem, we parallelize 
+
+% Stacking is a fundamental problem with applications in bin packing, industrial warehouse storage~\cite{wang2022binpacking,huang2023binpacking}, and stone-wall construction~\cite{johns2020autonomous}.
+% In freestanding stacking, the resulting structure must approximate a prescribed target shape while maintaining force and torque equilibrium under contact forces and gravity, without support from an enclosing container.
+% For $n$ irregular objects, this geometric goal can be expressed as minimizing the unfilled volume of a target shape $\target\subset\real^3$, subject to physical feasibility:
+% \begin{gather}
+% \min_{q_1,\cdots,q_n\in\SE(3)} \vol\left(\target\backslash\bigcup_{i=1}^{n}\object_i(q_i)\right)\quad\text{s.t.} \label{eq:problem_definition}\\
+% c_\text{phys}(\object_1(q_1),\cdots,\object_n(q_n))=0, \nonumber
+% \end{gather}
+% where $\object_i(q_i)\subset\real^3$ is the region occupied by object $i$ at pose $q_i\in\SE(3)$, $\vol(\cdot)$ denotes volume, and $c_\text{phys}=0$ represents stability and non-interpenetration constraints.
+% Achieving these requirements simultaneously is challenging because changing one object pose alters both the occupied space and the contact geometry through which loads are transmitted across the structure.
+% Moreover, a placement that fits well and is stable at the current stage may limit how closely the completed structure can approximate the target shape.
+% Planning its construction therefore involves combinatorial choices of objects and placement order, together with iterative numerical evaluation of contact interactions~\cite{furrer2017stacking}, making planning computationally expensive.
+
+% Our key idea is to use differentiable shape representation to obtain the gradient for pose optimization that accounts for both target shape 
+
+% Our key idea is to use differentiable shape abstraction~\cite{lee2023uncertain,an2024riemannianmtd} to obtain pose gradients for placement optimization that accounts for both target geometry and contact-force equilibrium across the entire structure.
+% We formulate this optimization for GPU parallelization and combine it with GPU-accelerated simulation to evaluate candidate placements in batches.
+% These evaluations support a batched Monte Carlo Tree Search (MCTS) planner~\cite{huang2022pmbs} that compares alternative placement sequences.
+
+Existing automated stone-stacking methods use geometric criteria tailored to tower building~\cite{furrer2017stacking} or wall construction~\cite{johns2020autonomous,liu2021drystacking}.
+Extensions to freeform walls~\cite{johns2023framework} broaden the range of wall geometries, but retain placement criteria specific to wall construction.
+Our geometric objectives instead use the prescribed target shape directly, allowing the same pose optimization formulation to be applied to different target geometries.
+
+For structural stability, Liu and Napp~\cite{liu2023stability} evaluate structural strength through simulation, using candidate generation and filtering rather than continuous pose refinement driven by structural equilibrium.
+Our optimizer uses equilibrium across the entire structure to guide placement adjustments before simulation.
+For sequential planning, Menezes et al.~\cite{menezes2021rocks} learn placement values that account for future rewards, but assume a prescribed object sequence and fixed orientations.
+Our planner searches over both object choices and placement poses to account for their effects on subsequent placements.
+
 
 \begin{figure}[t]
   \centering
@@ -35,17 +52,52 @@ Our central question is how to combine this lookahead with structural stability 
 % Queue the two-column overview on page 1 so it appears at the top of page 2.
 \input{figures/overview.tex}
 
-Our framework couples bilevel pose optimization with batched, receding-horizon Monte Carlo Tree Search (MCTS)~\cite{huang2022pmbs}.
-The optimizer combines target geometry with structure-wide force and torque equilibrium under friction constraints, using bodywise ADMM to parallelize contact-force optimization.
-Different targets share this formulation through their geometric representations.
-MCTS compares placement sequences using simulation to reject unstable placements and supply settled successor states.
+% Robotic packing has been widely studied for warehouse automation, achieving dense, stable arrangements of irregular objects within containers~\cite{wang2022binpacking,huang2023binpacking}.
+% Unlike packing within containers, freestanding stacking must achieve a prescribed target shape through mutual support among objects, without relying on container walls.
+% Such capabilities are important for dry-stone construction and could also support compact storage of bulky, irregular raw materials in industrial settings.
 
-We hypothesize that combining structural stability evaluation with multi-step lookahead improves target coverage while maintaining stability across different target geometries under a fixed planning budget.
-Comparisons with greedy placement and candidate-only stability evaluation will test the effects of lookahead and structural coupling, respectively.
-Evaluations across target shapes and search horizons will examine the applicability of the common formulation and its computational tradeoffs.
-The proposed contributions are:
-\begin{itemize}
-  \item A bilevel pose optimization that combines explicit target geometry with contact-force optimization across the structure, using bodywise ADMM updates for GPU computation.
-  \item A receding-horizon MCTS stacking planner that evaluates batches of candidate placements in parallel through pose refinement and physical simulation, providing multi-step lookahead over object choices and placement poses.
-\end{itemize}
+% Existing automated stone-stacking methods use criteria tailored to particular construction settings: tower-building objectives~\cite{furrer2017stacking}, wall-surface intersections and inward-slope heuristics~\cite{johns2020autonomous}, or masonry-inspired geometric rules~\cite{liu2021drystacking}.
+% Extensions to freeform walls~\cite{johns2023framework} broaden wall geometry; more general targets motivate objectives that use target geometry without wall-specific placement rules.
+% Structural stability also requires reasoning beyond the support of the newly placed object: its load can affect the equilibrium of objects beneath it.
+% Liu and Napp~\cite{liu2023stability} explicitly address structural strength during planning, demonstrating the value of evaluating the structure as a whole.
+% However, assessing the current structure alone does not determine how a placement affects future support and space utilization.
+% Menezes et al.~\cite{menezes2021rocks} address sequential placement through learned action values that account for future rewards, with a prescribed object sequence and fixed orientations.
+% We investigate explicit lookahead over object choices and placement poses, coupled with structural stability evaluation and target-shape objectives.
+
+% We consider stacking a finite inventory of $N$ irregular objects to approximate a target shape $\target\subset\real^3$.
+% Let $\object_i(q_i)\subset\real^3$ denote the volume occupied by object $i$ at pose $q_i\in\SE(3)$.
+% The final configuration objective is
+% \begin{gather}
+% \min_{q_1,\cdots,q_n\in\SE(3)} \vol\left(\target\backslash\bigcup_{i=1}^{n}\object_i(q_i)\right)\quad\text{s.t.} \label{eq:problem_definition}\\
+% c_\text{phys}(\object_1(q_1),\cdots,\object_n(q_n))=0, \nonumber
+% \end{gather}
+% where $\vol(\cdot)$ denotes volume and $c_\text{phys}=0$ represents stability and non-interpenetration constraints.
+% Constructing such a configuration requires combinatorial choices of objects and placement order together with continuous pose optimization under coupled physical constraints, making joint planning computationally demanding.
+% We therefore select one object and optimize its placement at each step, checking the resulting structure's physical feasibility.
+% Each placement changes support geometry, free space, and remaining inventory, motivating lookahead beyond immediate placement quality.
+% Our central question is how to combine this lookahead with structural stability evaluation in a common framework for different target shapes.
+
+% \begin{figure}[t]
+%   \centering
+%   \includegraphics[width=\columnwidth]{figures/preliminary_result.pdf}
+%   \caption{Preliminary stacking results. Left: simulated structures for different target shapes. Right: a physical stone structure from an outdoor experiment.}
+%   \label{fig:preliminary_result}
+% \end{figure}
+
+% % Queue the two-column overview on page 1 so it appears at the top of page 2.
+% \input{figures/overview.tex}
+
+% Our framework couples bilevel pose optimization with batched, receding-horizon Monte Carlo Tree Search (MCTS)~\cite{huang2022pmbs}.
+% The optimizer combines target geometry with structure-wide force and torque equilibrium under friction constraints, using bodywise ADMM to parallelize contact-force optimization.
+% Different targets share this formulation through their geometric representations.
+% MCTS compares placement sequences using simulation to reject unstable placements and supply settled successor states.
+
+% We hypothesize that combining structural stability evaluation with multi-step lookahead improves target coverage while maintaining stability across different target geometries under a fixed planning budget.
+% Comparisons with greedy placement and candidate-only stability evaluation will test the effects of lookahead and structural coupling, respectively.
+% Evaluations across target shapes and search horizons will examine the applicability of the common formulation and its computational tradeoffs.
+% The proposed contributions are:
+% \begin{itemize}
+%   \item A bilevel pose optimization that combines explicit target geometry with contact-force optimization across the structure, using bodywise ADMM updates for GPU computation.
+%   \item A receding-horizon MCTS stacking planner that evaluates batches of candidate placements in parallel through pose refinement and physical simulation, providing multi-step lookahead over object choices and placement poses.
+% \end{itemize}
 

@@ -16,7 +16,7 @@ DSFs support differentiable signed-distance and contact-geometry computations be
 
 \subsection{Markov Decision Process Formulation}
 
-To address the construction objective in Eq.~\eqref{eq:problem_definition}, we model stacking as a finite-horizon sequential decision process in which one object is placed at each step. 
+Given an inventory of $n$ objects, we model stacking as a finite-horizon sequential decision process in which one object is placed at each step.
 Let $\placed_k\subseteq\{1,\ldots,n\}$ be the indices of the objects already placed, and let $i_0\notin\{1,\ldots,n\}$ index the fixed ground.
 The current scene is $\scene_k=\{(i,q_i)\mid i\in\placed_k\}$, and the remaining inventory is $\inventory_k=\{1,\ldots,n\}\setminus\placed_k$.
 The state, action, and deterministic transition function are
