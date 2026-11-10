@@ -1,11 +1,11 @@
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\columnwidth]{figures/initial_pose_sampling.eps}
+  \includegraphics[width=0.9\columnwidth]{figures/initial_pose_sampling.eps}
   \caption{Initial pose sampling for a fixed object and orientation: (a) scene height, (b) proposal score and sampled planar location, and (c) initial pose $\hat q$ above the scene. Magenta links the sampled location and candidate object.}
   \label{fig:score_map}
 \end{figure}
 
-\section{Sequence Planning} \label{sec:sequence_planning}
+\section{Sequence Planning via Monte Carlo Tree Search} \label{sec:sequence_planning}
 
 \subsection{Initial Pose Sampling}
 The sampler $\initpose$ uses volume-biased object sampling with a finite orientation set per object. It favors lower placements and seeds empty scenes near feasible target corners. For object $i$, orientation $R$, and feasible planar location $\planar$, the score (Fig.~\ref{fig:score_map}) is
@@ -19,21 +19,6 @@ A bounded penalty $\score_\text{d}$ on the planar footprint gap to the preceding
 Inspired by Menezes et al.~\cite{menezes2021rocks}, the floor and boundary terms encourage filling empty layer regions and building inward from the boundary.
 
 We combine elite selection with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$. Proposals start above the scene with clearance and undergo $\poseopt$ refinement, including XY/yaw mutations at the root. Heuristic filters limit planar displacement from each initial pose after optimization and settling, and screen out candidates whose bottoms lie too far above the current construction level or whose equilibrium residual is too large (defined below).
-% Distance penalty: sigma_d = [d_prev - delta]_+ / (L + [d_prev - delta]_+),
-% using the convex XY footprint gap and L = cube root of mean inventory volume.
-% XY displacement limit: eta * volume(candidate)^(1/3).
-% The active layer advances at a prescribed projected-coverage threshold.
-% Standard sampler: volume-biased budgets, platform-specific orientation banks,
-% soft previous-action distance, elite fraction 0.25, temperature 0.3.
-% Active-layer admission is a construction-order filter after pose optimization,
-% before simulation, for fresh and mutated proposals at every search depth.
-% It does not impose a further layer gate on the settled successor.
-% XY admission uses the candidate's volume and each mutation's own initial pose;
-% it checks optimized and nominal settled endpoints, not vertical/rotational motion.
-% Layer fallback covers unsuccessful root search and exhausted descendants with
-% above_active_layer rejections; the latter receive one extra proposal pool.
-% Contact height used for scoring differs from the lifted optimization seed.
-% Composite sampling uses region-local layers and elite/Boltzmann draws.
 
 \subsection{Simulation Module}\label{sec:simulation}
 The module $\simul$ uses the same simulation procedure at every search depth.
@@ -51,11 +36,6 @@ The force is removed after $\Delta t_f$ to observe recovery; all placed objects 
 Every trial must recover within prescribed tolerances without excessive pose excursion.
 These trials assess structural robustness without changing $\state'$.
 GPU-accelerated subADMM~\cite{ji2025gpu} enables parallel candidate simulation, complementing the parallel pose optimizer for batched MCTS evaluation.
-% Quiet proxy: e_l = 2 K_l / m_l; motion integral = integral sqrt(e_l) dt.
-% Excavator force probes: alpha=0.05, Delta t_f=1 s, n_d=8, contact_hops=null.
-% Force is applied only at the candidate COM, without an applied torque.
-% All trial velocities start at zero; every movable stone is monitored.
-% Force magnitudes, durations, and recovery tolerances are experimental parameters.
 
 \subsection{Reward Design}
 For the newly placed object $i=i_{k+1}$, let $q_i'$ be its pose in the settled successor $s'$ returned by $\simul$ (Sec.~\ref{sec:simulation}). We define the target-volume and object-volume ratios
@@ -83,8 +63,6 @@ The equilibrium score uses residual forces $\mathbf f_l$ and torques $\boldsymbo
 \end{equation*}
 Here $l$ indexes objects in the resulting structure and $g$ is gravitational acceleration.
 Candidates with $e(\action)\geq\epsilon_\mathrm{eq}$ are rejected after pose optimization, before simulation, so the equilibrium term ranks only admitted placements.
-% epsilon_eq = 0.1 on both platforms (posegen_equilibrium_threshold; e = epsilon_eq is rejected).
-% Reward/prior code also clips e at 1; inactive for admitted candidates since epsilon_eq < 1.
 Let $q_l^{(j)}(t)$ denote object $l$'s pose during force trial $j$ (Sec.~\ref{sec:simulation}), starting from its nominal successor pose $q_l'$.
 Disturbance sensitivity is
 \begin{equation*}
@@ -92,19 +70,6 @@ Disturbance sensitivity is
 \end{equation*}
 where $d_{\SE(3)}$ sums Euclidean translation distance and angular distance weighted by $\lambda_\theta>0$.
 The maximum spans force trials, all placed objects, and simulation time including recovery; $D_{\max}$ caps the penalty. Physical rejection criteria apply independently of the reward.
-% Fixed scales are absorbed into paper weights, preserving the implemented reward.
-% With Vbar = mean initial object volume and L = Vbar^(1/3), excavator:
-% Paper weights multiply the configured reward weights by the corresponding
-% fixed scales: vol(T)/Vbar, 1, 1, 1/L^2, and 1/D_ref.
-% Vbar is fixed for the initial inventory, not recomputed at each placement.
-% Surface reward is (variance(parent) - variance(settled successor)) / L^2.
-% The baseline is recorded before physics, including any subsequent support motion.
-% Containment-ratio clipping is a numerical safeguard for voxel estimates, omitted from
-% the geometric definition above (user agreement). The weight equivalence
-% applies to the geometric reward; runtime estimates retain their safeguards.
-% Tabletop additionally enables inward-orientation reward. Composite reward
-% excludes previously occupied successor voxels and uses masked footprint means.
-% Those variants are not interchangeable with a parent-to-successor union delta.
 
 \input{figures/mcts_example.tex}
 
@@ -120,8 +85,6 @@ For an optimized action $a=(i,q)$, let $\rho_\object^{\mathrm{pre}}$ denote the 
          {1+N_{\node}+\hat N_{\node}},
     \label{eq:puct}
 \end{equation}
-% tree_policy.selection_score requires positive effective parent visits;
-% pending actions are handled before PUCT, so no max(..., 1) is used here.
 where $c>0$ controls exploration, $\tmpvisit$ counts temporary reservations, and the first term is zero when its denominator is zero.
 At non-root nodes, progressive widening~\cite{couetoux2011continuousuct} increases the number of candidate actions with completed visits.
 Temporary reservations prevent duplicate evaluations within a batch without increasing the widening allowance.
@@ -140,11 +103,6 @@ We replace rollouts with a heuristic estimate of future rewards:
 \end{equation*}
 where $\hat{r}$ is a prescribed per-step reward estimate and $\depth_{\node}$ the bootstrap horizon, capped by remaining depth and inventory (zero at the depth limit).
 Backup starts from $r_{\node}+\gamma\hat V(\node)$, where $r_{\node}$ is the incoming action's reward, and recursively adds ancestor rewards with discount $\gamma$, updating $Q$, $N$, and clearing temporary reservations.
-% \depth_{\node} = min(configured bootstrap horizon, remaining depth, remaining inventory).
-% The native bootstrap excludes r_{\node} and its first-edge discount, as above.
-% The failure override in backup is equivalent to r_{\node}=-1 and Vhat(\node)=0.
-% Failure passes -1 to ancestors; the unselectable failed node itself records zero.
-% Exhausted shallower nonterminal leaves are not repeatedly backed up.
 
 \noindent \textbf{Action Selection and Tree Reuse.}
 For each feasible root action $a$, let $G(a)$ be the maximum discounted observed return among its deepest evaluated feasible paths within the search horizon, including $a$'s reward and excluding bootstrap values.
@@ -157,9 +115,3 @@ If no root action is feasible, we return no placement.
 
 After execution, we advance the root to the observed successor.
 Evaluated descendants are retained when this state and the planning context match those used to construct the subtree; otherwise, the affected subtree and its statistics are discarded.
-% Current CUDA defaults: beta=0.5 and min_feasible_depth=1 (root action depth).
-% Within each root subtree, depth takes priority and return breaks depth ties.
-% An optional larger minimum depth filters roots when any qualify; fallback
-% still uses the same mixed score. It is inactive in the default profile.
-% G uses evaluated rewards without a leaf bootstrap. Reused visit statistics
-% may be reset separately; retaining transitions does not require retaining Q/N.

@@ -1,15 +1,21 @@
 \section{Related Works} \label{sec:related_works}
 
-\subsection{Automated Stone Stacking}
-Prior stone-stacking methods combine pose search with simulation~\cite{furrer2017stacking} or use geometric placement rules for wall construction~\cite{johns2020autonomous,johns2023framework,liu2021drystacking}.
-Liu and Napp~\cite{liu2023stability} incorporate structural strength into sequence planning.
-Menezes et al.~\cite{menezes2021rocks} learn placement values with a fixed object sequence and fixed orientations, and their elevation-map strategy informs our initial pose sampler.
-We combine target-driven pose optimization and structural equilibrium evaluation with explicit lookahead over object choices and placement poses.
+\subsection{Robotic Packing and Stone Stacking}
+Wang and Hauser~\cite{wang2022binpacking} check pile equilibrium in containers using linear programming with pyramidal friction cones, without using equilibrium residuals for continuous pose refinement.
+
+Johns et al.~\cite{johns2020autonomous,johns2023framework} construct freestanding walls using masonry-inspired placement rules and torque and intersection constrained registration (TICR).
+TICR combines candidate contact-force optimization, iterative closest point registration, and heuristic rotational corrections, followed by simulation for stability evaluation.
+Pose updates do not account for load redistribution across the structure.
+
+Liu et al.~\cite{liu2021drystacking} geometrically filter simulation-settled poses; Liu and Napp~\cite{liu2023stability} add shake tests to select the candidate with the longest time to collapse above a threshold, without searching future placements.
+Testing all feasible poses without filtering increases runtime by $5$--$15\times$~\cite{liu2023stability}.
+Our method uses whole-structure equilibrium residuals for pose refinement and MCTS for subsequent placement sequences.
 
 \subsection{Contact-Aware Pose Optimization}
-BODex~\cite{chen2025bodex} couples lower-level contact-force optimization with upper-level grasp synthesis, while GraspQP~\cite{zurbrugg2025graspqp} defines a differentiable force-closure energy through a quadratic program.
-Our optimizer couples candidate placement with structure-wide equilibrium, using bodywise force decomposition for parallel evaluation.
+Lee et al.~\cite{lee2025contactfactorgraph} model manipulation with contact factor graphs, using differentiable contact features and the envelope theorem for configuration inference after conditional force optimization, assuming a predefined task skeleton.
+GraspQP~\cite{zurbrugg2025graspqp} defines a force-closure energy through a differentiable QP and uses KKT differentiation to guide grasp refinement.
+BODex~\cite{chen2025bodex} uses bilevel grasp optimization with pyramidal friction cones and batched ReLU-QP, an ADMM-based GPU solver for contact forces.
 
 \subsection{Simulation-Based Sequential Manipulation Planning}
-Parallel Monte Carlo Tree Search with Batched Simulations (PMBS)~\cite{huang2022pmbs} couples parallel search with GPU rigid-body simulation for object retrieval from clutter.
-Our stacking planner adopts batched evaluation, integrating pose refinement and structural simulation at each expansion.
+PMBS~\cite{huang2022pmbs} combines parallel MCTS with GPU rigid-body simulation for object retrieval from clutter.
+Our planner adopts batched evaluation and additionally parallelizes whole-structure contact-force optimization for pose refinement before structural simulation at each expansion.
