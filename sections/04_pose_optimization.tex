@@ -43,12 +43,8 @@ Nonsmooth transitions have not caused practical difficulties in our implementati
 
 \input{figures/pose_optimization.tex}
 
-Let $\placed_{k+1}:=\placed_k\cup\{i_{k+1}\}$. For distinct $l,m\in\placed_{k+1}\cup\{i_0\}$, let
-$I_{l,m}\subset\{1,\ldots,n_c\}$ index contacts between bodies $l$ and $m$.
-Each object's contact set
-$I_l:=\bigcup_{m\in(\placed_{k+1}\cup\{i_0\})\setminus\{l\}}I_{l,m}$ includes
-ground contacts, but the physical objective excludes the ground's equilibrium
-residual:
+Let $\placed_{k+1}:=\placed_k\cup\{i_{k+1}\}$ and let $I_l\subseteq\{1,\ldots,n_c\}$ index all contacts involving object $l$, including ground contacts.
+The physical objective excludes the ground's equilibrium residual:
 \begin{IEEEeqnarray}{l}
   f_\mathrm{phys}(q,\lambda)
   = w_\mathrm{eq}\sum_{l \in \placed_{k+1}} \|J_{c,I_l}^\top(q)  \lambda_{I_l} + \lambda_{\mathrm{ext},l}\|_W^2 \nonumber \\

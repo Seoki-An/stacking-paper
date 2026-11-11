@@ -1,6 +1,6 @@
 \input{figures/initial_pose_sampling.tex}
 
-\section{Sequence Planning via Monte Carlo Tree Search} \label{sec:sequence_planning}
+\section{Sequence Planning via parallel MCTS} \label{sec:sequence_planning}
 
 \subsection{Initial Pose Sampling}
 The sampler $\initpose$ uses volume-biased object sampling with a finite orientation set per object. It favors lower placements and seeds empty scenes near feasible target corners. For object $i$, orientation $R$, and feasible planar location $\planar$, the score (Fig.~\ref{fig:score_map}) is
