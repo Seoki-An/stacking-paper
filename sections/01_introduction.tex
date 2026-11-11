@@ -8,7 +8,7 @@ For $n$ irregular objects, this geometric goal can be expressed as minimizing th
 c_\text{phys}(\object_1(q_1),\cdots,\object_n(q_n))=0, \nonumber
 \end{gather}
 where $\object_i(q_i)\subset\real^3$ is the region occupied by object $i$ at pose $q_i\in\SE(3)$, $\vol(\cdot)$ denotes volume, and $c_\text{phys}=0$ represents stability and non-interpenetration constraints.
-Achieving these requirements simultaneously is challenging because changing one object pose alters both the occupied space and the contact geometry through which loads are transmitted across the structure.
+Achieving these requirements simultaneously is challenging because changing one object pose alters both the occupied space and the contact geometry through which contact forces are transmitted across the structure.
 Moreover, the choice and pose of lower objects constrain the remaining feasible subsequent placements, so even a currently stable arrangement may limit further stacking toward the target shape, especially when the available object inventory is limited.
 Planning its construction therefore involves combinatorial choices of objects and placement order, together with iterative numerical evaluation of contact interactions~\cite{furrer2017stacking}, making planning computationally expensive.
 
@@ -21,24 +21,24 @@ Robotic bin-packing methods consider placement stability within containers~\cite
 More directly related, Johns et al.~\cite{johns2020autonomous,johns2023framework} construct freestanding stone walls using contact-aware registration and simulation, while Liu and Napp~\cite{liu2023stability} combine heuristic filtering with simulation-based assessments of structural strength to select placements.
 These stone-stacking methods do not use equilibrium across the entire structure to guide continuous pose refinement.
 Furthermore, they select placements using the current structure without explicitly comparing subsequent placement sequences, although masonry-inspired rules encourage suitable support for later objects.
-This leaves two challenges: refining poses according to contact-force redistribution throughout the structure and evaluating how current choices affect future feasible placements.
+This leaves two challenges: refining poses according to contact force redistribution throughout the structure and evaluating how current choices affect future feasible placements.
 
 We address these challenges through pose optimization incorporating structural stability and GPU-accelerated Monte Carlo Tree Search (MCTS) for sequence planning.
 
 Unlike prior stacking methods, we formulate placement refinement as a constrained bilevel problem and compute pose gradients of the objective and constraints using differentiable support functions (DSFs) for shape representation and collision detection~\cite{lee2023uncertain,an2024riemannianmtd}.
 Bilevel formulations also appear in contact-aware manipulation planning and grasp generation~\cite{lee2025contactfactorgraph,zurbrugg2025graspqp,chen2025bodex}.
-Our lower-level problem accounts for force and torque equilibrium of all stones, including the candidate, with shared contact forces transmitting loads through the stack to the ground.
+Our lower-level problem accounts for force and torque equilibrium of all stones, including the candidate, with shared contact forces transmitting contact forces through the stack to the ground.
 
 In addition, rather than relying solely on masonry heuristics, we use MCTS to plan stacking sequences, explicitly accounting for how each placement affects subsequent placements.
 To adapt MCTS to the stacking problem, we design a hierarchical node expansion strategy that progressively refines and validates candidate placements through initial pose sampling, pose optimization, and simulation-based feasibility checking.
 We also define task-specific rewards that guide the search toward target shape coverage and structural stability.
 
 However, repeated pose optimization and simulation in MCTS require large computational load.
-To make MCTS computationally practical, we introduce bodywise contact-force copies and an alternating direction method of multipliers (ADMM) decomposition for parallel force optimization within each candidate structure, while batching independent candidate placements on the GPU.
+To make MCTS computationally practical, we introduce bodywise contact force copies and an alternating direction method of multipliers (ADMM) decomposition for parallel force optimization within each candidate structure, while batching independent candidate placements on the GPU.
 Together with GPU-accelerated subADMM simulation~\cite{ji2025gpu}, this enables parallel candidate evaluation throughout the search tree (Figure~\ref{fig:overview}) which significantly accelerate the overall MCTS process.
 Our main contributions are as follows:
-\begin{itemize}
-\item We formulate a differentiable bilevel placement problem that uses target geometry and force and torque equilibrium across the entire structure to guide candidate pose refinement.
-\item We adapt MCTS to stacking through hierarchical node expansion that samples, refines, and validates candidate placements, with task-specific rewards for target coverage and structural stability guiding lookahead over object choices and placement poses.
-\item We combine GPU-accelerated contact-force optimization and simulation for batched MCTS evaluation, using a bodywise ADMM decomposition to parallelize force optimization within each structure and evaluating independent candidate placements in parallel.
+\begin{itemize}[\setlength{\topsep}{2pt}\setlength{\parskip}{0pt}]
+\item We formulate differentiable bilevel pose optimization guided by target geometry and force and torque equilibrium across the entire structure.
+\item We adapt MCTS to stacking with hierarchical node expansion and task-specific rewards guiding lookahead toward target coverage and structural stability.
+\item We parallelize contact force optimization within structures using bodywise ADMM and batch pose optimization and simulation across candidates for GPU-accelerated MCTS evaluation.
 \end{itemize}

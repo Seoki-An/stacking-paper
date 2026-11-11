@@ -3,7 +3,7 @@
 \subsection{Robotic Packing and Stone Stacking}
 Wang and Hauser~\cite{wang2022binpacking} evaluate pile equilibrium in containers via linear programming, without using equilibrium residuals for pose refinement.
 
-Johns et al.~\cite{johns2020autonomous,johns2023framework} combine masonry rules, candidate contact-force optimization, registration, and simulation for freestanding wall construction, but pose updates do not account for load redistribution across the structure.
+Johns et al.~\cite{johns2020autonomous,johns2023framework} combine masonry rules, candidate contact force optimization, registration, and simulation for freestanding wall construction, but pose updates do not account for contact force redistribution across the structure.
 
 Liu et al.~\cite{liu2021drystacking} filter simulation-settled poses geometrically; Liu and Napp~\cite{liu2023stability} additionally evaluate structural strength through shake tests, without searching future placements.
 Menezes et al.~\cite{menezes2021rocks} learn placement values reflecting future rewards with fixed object sequences and orientations.
@@ -12,9 +12,9 @@ We instead combine whole-structure equilibrium-guided pose refinement with searc
 \subsection{Contact-Aware Pose Optimization}
 Lee et al.~\cite{lee2025contactfactorgraph} use differentiable contact factors and the envelope theorem for configuration inference after force optimization under a predefined task skeleton.
 GraspQP~\cite{zurbrugg2025graspqp} refines grasps through KKT differentiation of a force-closure QP.
-BODex~\cite{chen2025bodex} couples bilevel grasp optimization with batched GPU contact-force solves using ReLU-QP.
+BODex~\cite{chen2025bodex} couples bilevel grasp optimization with batched GPU contact force solves using ReLU-QP.
 Its contact refinement uses finite differences or detached contact points, whereas we differentiate DSF contact geometry at regular solutions.
 
 \subsection{Simulation-Based Sequential Manipulation Planning}
 PMBS~\cite{huang2022pmbs} combines parallel MCTS with GPU simulation for object retrieval from clutter.
-We adopt batched evaluation, adding parallel whole-structure contact-force optimization for pose refinement before simulation at each expansion.
+We adopt batched evaluation, adding parallel whole-structure contact force optimization for pose refinement before simulation at each expansion.
