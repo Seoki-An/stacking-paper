@@ -1,45 +1,89 @@
-\input{figures/initial_pose_sampling.tex}
+\section{Sequence Planning via Parallel MCTS}\label{sec:sequence_planning}
 
-\section{Sequence Planning via parallel MCTS} \label{sec:sequence_planning}
+Building on Sec.~\ref{sec:overview}, we combine batched MCTS~\cite{huang2022pmbs} with parallel pose optimization, sampling, simulation, and task-specific rewards (Fig.~\ref{fig:overview}).
+We use a receding-horizon strategy: search considers a limited horizon of future placements, but only one selected placement is executed before replanning from the observed scene.
 
-\subsection{Initial Pose Sampling}
-The sampler $\initpose$ uses volume-biased object sampling with a finite orientation set per object. It favors lower placements and seeds empty scenes near feasible target corners. For object $i$, orientation $R$, and feasible planar location $\planar$, the score (Fig.~\ref{fig:score_map}) is
+\subsection{Batched Search Procedure}\label{sec:mcts}
+
+\noindent \textbf{Batched Selection.}
+Colored paths in the ``Batched selection'' panel (Fig.~\ref{fig:overview}) terminate at expansion requests $b_j$.
+Over selectable child actions of $\node_p$, we define
+\begin{equation*}
+ P(\node_p,a)=\operatorname{softmax}_{a}\!\left(w_\object\rho_\object^{\mathrm{pre}}(a)-w_E e(a)\right),
+\end{equation*}
+where $\rho_\object^{\mathrm{pre}}(a)$ is the pre-simulation object-volume fraction inside the target; $e(a)$ and the weights follow Sec.~\ref{sec:reward}.
+Writing $N_{\node}=N(\node)$ and similarly for $Q,\hat N$, we select evaluated children using PUCT~\cite{silver2017mastering}:
+\begin{equation}
+    \puct(\node)=\frac{N_{\node}Q_{\node}}{N_{\node}+\hat N_{\node}}
+    +cP(\node_p,a)\frac{\sqrt{N_{\node_p}+\hat N_{\node_p}}}
+         {1+N_{\node}+\hat N_{\node}},
+    \label{eq:puct}
+\end{equation}
+where $c>0$ controls exploration, $\tmpvisit$ counts temporary reservations, and the first term is zero when its denominator is zero.
+Non-root progressive widening~\cite{couetoux2011continuousuct} increases candidate counts with completed visits; reservations prevent duplicate batch evaluations without increasing this allowance.
+
+\noindent \textbf{Parallel Expansion and Evaluation.}
+Each colored row in Fig.~\ref{fig:overview} evaluates one request through $\initpose\to\poseopt\to\simul$; rows run in parallel using the pose optimizer of Sec.~\ref{sec:pose_optimization}.
+Selection descends only through evaluated successors and excludes failed candidates.
+
+\noindent \textbf{Leaf Value Estimation and Backpropagation.}
+For nonterminal, feasible leaves, we replace rollouts with $\hat V(\node)=\hat r\sum_{j=0}^{\depth_{\node}-1}\gamma^j$, where $\depth_{\node}$ is capped by remaining search depth and inventory.
+The fixed hyperparameter $\hat r$ sets a heuristic per-step reward for unexplored continuations, influencing exploration through backpropagated returns alongside PUCT.
+Failed or terminal nodes have $\hat V=0$.
+Following the arrows in the ``Backpropagation'' panel (Fig.~\ref{fig:overview}), we propagate $r_{\node}+\gamma\hat V(\node)$, with incoming reward $r_{\node}$, toward the root, adding discounted ancestor rewards, updating $Q,N$, and clearing reservations.
+
+\noindent \textbf{Action Selection and Tree Reuse.}
+As shown at the bottom right of Fig.~\ref{fig:overview}, we select the feasible root action maximizing
+\begin{equation*}
+  J(a)=(1-\beta)Q(\node_a)+\beta G(a),\qquad \beta\in[0,1].
+\end{equation*}
+Here $G(a)$ is the maximum discounted observed return over the deepest evaluated feasible paths below $a$, including its reward but excluding bootstrap values; root-only paths are eligible.
+This term offsets exploration failures that depress $Q$ despite promising paths. If no root action is feasible, no placement is returned.
+
+After executing the selected placement, we advance the root to the observed successor and repeat the search.
+Descendants and statistics are retained only when the observed state and planning context match the subtree; otherwise, the affected subtree is discarded.
+
+Figure~\ref{fig:mcts_example} compares the resulting planner with greedy placement.
+\input{figures/mcts_example.tex}
+
+\subsection{Initial Pose Sampling}\label{sec:initial_pose_sampling}
+The sampler $\initpose$ selects objects with volume bias and uses finite orientation sets, seeding empty scenes near feasible target corners.
+For object $i$, orientation $R$, and feasible planar location $\planar$, the score (Fig.~\ref{fig:score_map}) is
 \begin{equation*}
   \score(\planar\mid i,R)
   =w_\text{s}\score_\text{s}+w_\text{f}\score_\text{f}
    +w_\text{b}\score_\text{b}-w_\text{h}\score_\text{h}-w_\text{d}\score_\text{d},
 \end{equation*}
-with positive weights. The first four terms measure the fraction of bottom samples near predicted contact, unfilled layer area beneath the footprint, proximity to the feasible placement boundary, and normalized mean contact height, respectively.
-A bounded penalty $\score_\text{d}$ on the planar footprint gap to the preceding object (zero for the first placement) encourages nearby placements, helping MCTS assess their interactions without excluding distant proposals.
-Inspired by Menezes et al.~\cite{menezes2021rocks}, the floor and boundary terms encourage filling empty layer regions and building inward from the boundary.
+with positive weights. The terms measure predicted bottom support fraction, unfilled layer area beneath the footprint, feasible-boundary proximity, normalized mean contact height, and a bounded footprint-gap penalty to the preceding object (zero for the first placement).
+Following Menezes et al.~\cite{menezes2021rocks}, floor and boundary preferences encourage filling empty regions and building inward from the boundary.
 
-We combine elite selection with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$. Proposals start above the scene with clearance and undergo $\poseopt$ refinement, including XY/yaw mutations at the root. Heuristic filters limit planar displacement from each initial pose after optimization and settling, and screen out candidates whose bottoms lie too far above the current construction level or whose equilibrium residual is too large (defined below).
+We combine elite selection with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$.
+We initialize height so the candidate's lowest point lies above the base plane and the bounding-box tops of objects with overlapping padded XY bounds, with added clearance (Fig.~\ref{fig:score_map}(c)).
+Geometric filters constrain planar displacement and placement height after refinement and settling.
+% Root proposals also use XY/yaw mutations. Displacement is measured from the
+% initial pose, and height filtering uses the current construction level.
+% Equilibrium rejection before simulation is defined in Reward Design.
 
 \subsection{Simulation Module}\label{sec:simulation}
-The module $\simul$ uses the same simulation procedure at every search depth.
-It settles the new object for a fixed duration with existing objects fixed, then resets velocities and simulates the entire structure's response to the added load.
-Structural simulation requires a minimum duration and sustained low mass-normalized kinetic energy.
-Excessive accumulated motion, invalid contacts, or failure to settle within the time limit rejects the placement.
+At every search depth, $\simul$ first settles the candidate for a fixed duration with existing objects fixed, then resets velocities and simulates the entire structure.
+Settling requires a minimum duration and sustained low mass-normalized kinetic energy; excessive accumulated motion, invalid contacts, or timeout reject the placement.
 
-The accepted settled scene defines the successor $\state'=\transition(\state,\action)$.
-Each disturbance trial starts from rest in this scene and applies a horizontal force at the new object's center of mass:
-\begin{equation*}
- \mathbf F_j=\alpha m_{i_{k+1}}g\bigl(\cos\theta_j,\;\sin\theta_j,\;0\bigr)^\top,
-\end{equation*}
-where $\theta_j=2\pi j/n_d$ for $j=0,\ldots,n_d-1$, $\alpha>0$ sets the force relative to object weight, and $g$ is gravitational acceleration.
-The force is removed after $\Delta t_f$ to observe recovery; all placed objects remain dynamic throughout.
-Every trial must recover within prescribed tolerances without excessive pose excursion.
-These trials assess structural robustness without changing $\state'$.
-GPU-accelerated subADMM~\cite{ji2025gpu} enables parallel candidate simulation, complementing the parallel pose optimizer for batched MCTS evaluation.
+The settled scene defines $\state'=\transition(\state,\action)$.
+From rest in $\state'$, independent disturbance trials apply a force of magnitude $\alpha m_{i_{k+1}}g$ at the candidate's center of mass for $\Delta t_f$, in $n_d$ evenly spaced horizontal directions ($\alpha>0$, gravitational acceleration $g$).
+With all objects dynamic, every trial must recover within tolerances without excessive pose excursion; trials do not alter $\state'$.
+GPU-accelerated subADMM~\cite{ji2025gpu} evaluates independent candidates in parallel.
 
-\subsection{Reward Design}
-For the newly placed object $i=i_{k+1}$, let $q_i'$ be its pose in the settled successor $s'$ returned by $\simul$ (Sec.~\ref{sec:simulation}). We define the target-volume and object-volume ratios
+% Delay the float to place Fig. 6 at the top of the right column.
+\input{figures/initial_pose_sampling.tex}
+
+\subsection{Reward Design}\label{sec:reward}
+For the new object $i=i_{k+1}$ at its settled successor pose $q_i'$ (Sec.~\ref{sec:simulation}), define
 \begin{equation*}
  \rho_\target=\frac{\vol\bigl(\object_i(q_i')\cap\target\bigr)}{\vol(\target)},
  \quad
  \rho_\object=\frac{\vol\bigl(\object_i(q_i')\cap\target\bigr)}{\vol(\object_i)}.
 \end{equation*}
-Here $\vol(\cdot)$ denotes volume. The $\rho_\target$ term encourages target filling, while $\rho_\object$ discourages placements extending excessively outside the target. Intersection volumes are estimated on a voxel grid. Failed transitions receive $r(\state,\action)=-1$. For feasible transitions, with fixed normalization scales absorbed into positive weights, the reward is
+These voxel-estimated volume ratios reward target filling and containment. For feasible transitions, with fixed normalization scales absorbed into positive weights,
 \begin{equation*}
 \begin{split}
  r(\state,\action)={}&w_\target\rho_\target+w_\object[\rho_\object-\tfrac12]_+
@@ -48,65 +92,19 @@ Here $\vol(\cdot)$ denotes volume. The $\rho_\target$ term encourages target fil
  -w_D D,
 \end{split}
 \end{equation*}
-where $[x]_+=\max(x,0)$, so the containment bonus is active above $50\%$. Coverage lost through motion of earlier objects is not subtracted. The height term rewards the decrease in surface-height variance $\phi_H(s)=\langle(H_s-\langle H_s\rangle_\Omega)^2\rangle_\Omega$ between parent and settled successor. Here $H_s$ is height over the target footprint $\Omega$, zero at empty cells, and $\langle\cdot\rangle_\Omega$ denotes the area-weighted mean.
+where $\phi_H(s)=\operatorname{Var}_\Omega(H_s)$ is the area-weighted variance of scene height over the target footprint $\Omega$, with empty cells assigned zero height.
+Coverage lost through earlier objects' motion is not subtracted. Failed transitions receive $r=-1$.
 
-The equilibrium score uses residual forces $\mathbf f_l$ and torques $\boldsymbol\tau_l$ returned by pose optimization:
+For pose-optimization residual forces $\mathbf f_l$ and torques $\boldsymbol\tau_l$ across all placed objects,
 \begin{equation*}
  e(\action)=\max_l\left(
  \frac{\|\mathbf f_l\|}{m_lg}
  +\frac{\|\boldsymbol\tau_l\|}{m_lg\vol(\object_l)^{1/3}}\right).
 \end{equation*}
-Here $l$ indexes objects in the resulting structure and $g$ is gravitational acceleration.
-Candidates with $e(\action)\geq\epsilon_\mathrm{eq}$ are rejected after pose optimization, before simulation, so the equilibrium term ranks only admitted placements.
-Let $q_l^{(j)}(t)$ denote object $l$'s pose during force trial $j$ (Sec.~\ref{sec:simulation}), starting from its nominal successor pose $q_l'$.
-Disturbance sensitivity is
+Candidates with $e(\action)\geq\epsilon_\mathrm{eq}$ are rejected before simulation.
+Disturbance sensitivity measures motion from settled poses $q_l'$ during force trials:
 \begin{equation*}
  D=\min\!\left\{D_{\max},\max_{j,l,t}d_{\SE(3)}\bigl(q_l^{(j)}(t),q_l'\bigr)\right\},
 \end{equation*}
-where $d_{\SE(3)}$ sums Euclidean translation distance and angular distance weighted by $\lambda_\theta>0$.
-The maximum spans force trials, all placed objects, and simulation time including recovery; $D_{\max}$ caps the penalty. Physical rejection criteria apply independently of the reward.
-
-\input{figures/mcts_example.tex}
-
-\subsection{Monte Carlo Tree Search}\label{sec:mcts}
-We integrate these modules in batched, receding-horizon MCTS (Fig.~\ref{fig:overview}), following the parallel evaluation approach of~\cite{huang2022pmbs}.
-Figure~\ref{fig:mcts_example} shows a recorded comparison with greedy placement.
-
-\noindent \textbf{Batched Selection.}
-For an optimized action $a=(i,q)$, let $\rho_\object^{\mathrm{pre}}$ denote the object-volume ratio evaluated at $q$, before simulation. Using the reward weights, the logit $\ell(a)=w_\object\rho_\object^{\mathrm{pre}}-w_E e(a)$ defines $P(\node_p,a)$ through a softmax over selectable children. Writing $N_{\node}=N(\node)$ and similarly for $Q_{\node}$ and $\hat N_{\node}$, an evaluated child $\node$ of $\node_p$ is selected using PUCT~\cite{silver2017mastering}:
-\begin{equation}
-    \puct(\node)=\frac{N_{\node}Q_{\node}}{N_{\node}+\hat N_{\node}}
-    +cP(\node_p,a)\frac{\sqrt{N_{\node_p}+\hat N_{\node_p}}}
-         {1+N_{\node}+\hat N_{\node}},
-    \label{eq:puct}
-\end{equation}
-where $c>0$ controls exploration, $\tmpvisit$ counts temporary reservations, and the first term is zero when its denominator is zero.
-At non-root nodes, progressive widening~\cite{couetoux2011continuousuct} increases the number of candidate actions with completed visits.
-Temporary reservations prevent duplicate evaluations within a batch without increasing the widening allowance.
-
-\noindent \textbf{Parallel Expansion and Evaluation.}
-After batch selection, fresh proposals pass through $\initpose\to\poseopt\to\simul$. Independent candidates are processed in parallel; selection never descends through an action without an evaluated successor. Failed candidates are excluded from further selection.
-
-\noindent \textbf{Leaf Value Estimation and Backpropagation.}
-We replace rollouts with a heuristic estimate of future rewards:
-\begin{equation*}
- \hat V(\node)=
- \begin{cases}
-  0, & \text{if failed or terminal},\\
-  \hat{r}\sum_{j=0}^{\depth_{\node}-1}\gamma^j, & \text{otherwise},
- \end{cases}
-\end{equation*}
-where $\hat{r}$ is a prescribed per-step reward estimate and $\depth_{\node}$ the bootstrap horizon, capped by remaining depth and inventory (zero at the depth limit).
-Backup starts from $r_{\node}+\gamma\hat V(\node)$, where $r_{\node}$ is the incoming action's reward, and recursively adds ancestor rewards with discount $\gamma$, updating $Q$, $N$, and clearing temporary reservations.
-
-\noindent \textbf{Action Selection and Tree Reuse.}
-For each feasible root action $a$, let $G(a)$ be the maximum discounted observed return among its deepest evaluated feasible paths within the search horizon, including $a$'s reward and excluding bootstrap values.
-Root-only paths are eligible. We select the action maximizing
-\begin{equation*}
-  J(a)=(1-\beta)Q(\node_a)+\beta G(a),\qquad \beta\in[0,1].
-\end{equation*}
-The path-return term counterbalances failures accumulated during exploration, which can depress the mean even when a promising feasible path exists.
-If no root action is feasible, we return no placement.
-
-After execution, we advance the root to the observed successor.
-Evaluated descendants are retained when this state and the planning context match those used to construct the subtree; otherwise, the affected subtree and its statistics are discarded.
+Here $q_l^{(j)}(t)$ is object $l$'s pose in trial $j$ at time $t$; the maximum spans all trials, objects, and simulation times including recovery, capped by $D_{\max}$.
+The distance $d_{\SE(3)}$ sums translation distance and angular distance weighted by $\lambda_\theta>0$. Feasibility rejection is independent of reward.
