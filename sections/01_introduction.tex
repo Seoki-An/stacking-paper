@@ -30,15 +30,15 @@ Bilevel formulations also appear in contact-aware manipulation planning and gras
 Our lower-level problem accounts for force and torque equilibrium of all stones, including the candidate, with shared contact forces transmitting contact forces through the stack to the ground.
 
 In addition, rather than relying solely on masonry heuristics, we use MCTS to plan stacking sequences, explicitly accounting for how each placement affects subsequent placements.
-To adapt MCTS to the stacking problem, we design a hierarchical node expansion strategy that progressively refines and validates candidate placements through initial pose sampling, pose optimization, and simulation-based feasibility checking.
-We also define task-specific rewards that guide the search toward target shape coverage and structural stability.
+To adapt MCTS to stacking, the proposed hierarchical node expansion strategy progressively refines and validates candidate placements through initial pose sampling, pose optimization, and simulation-based feasibility checking.
+Domain-specific rewards further guide the search toward target shape coverage and structural stability.
 
 However, repeated pose optimization and simulation in MCTS require large computational load.
 To make MCTS computationally practical, we introduce bodywise contact force copies and an alternating direction method of multipliers (ADMM) decomposition for parallel force optimization within each candidate structure, while batching independent candidate placements on the GPU.
 Together with GPU-accelerated subADMM simulation~\cite{ji2025gpu}, this enables parallel candidate evaluation throughout the search tree (Figure~\ref{fig:overview}) which significantly accelerate the overall MCTS process.
 Our main contributions are as follows:
 \begin{itemize}[\setlength{\topsep}{2pt}\setlength{\parskip}{0pt}]
-\item We formulate differentiable bilevel pose optimization guided by target geometry and force and torque equilibrium across the entire structure.
-\item We adapt MCTS to stacking with hierarchical node expansion and task-specific rewards guiding lookahead toward target coverage and structural stability.
-\item We parallelize contact force optimization within structures using bodywise ADMM and batch pose optimization and simulation across candidates for GPU-accelerated MCTS evaluation.
+\item A differentiable bilevel pose optimization formulation guided by target geometry and force and torque equilibrium across the entire structure.
+\item An MCTS framework for stacking with hierarchical node expansion and domain-specific rewards guiding lookahead toward target coverage and structural stability.
+\item GPU-accelerated MCTS evaluation through bodywise ADMM for parallel contact force optimization within structures and batched pose optimization and simulation across candidates.
 \end{itemize}
