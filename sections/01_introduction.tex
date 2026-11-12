@@ -18,7 +18,7 @@ Planning its construction therefore involves combinatorial choices of objects an
 \input{figures/overview.tex}
 
 Robotic bin-packing methods consider placement stability within containers~\cite{wang2022binpacking,huang2023binpacking}, where enclosing walls can provide lateral support unavailable in freestanding construction.
-More directly related, Johns et al.~\cite{johns2020autonomous,johns2023framework} construct freestanding stone walls using contact-aware registration and simulation, while Liu and Napp~\cite{liu2023stability} combine heuristic filtering with simulation-based assessments of structural strength to select placements.
+More directly related, Johns et al.~\cite{johns2020autonomous,johns2023framework} construct freestanding stone walls by geometrically aligning the surfaces of the stones, followed by simulation-based stability checks, while Liu and Napp~\cite{liu2023stability} combine heuristic filtering with simulation-based assessments of structural strength to select placements.
 These stone-stacking methods do not use equilibrium across the entire structure to guide continuous pose refinement.
 Furthermore, they select placements using the current structure without explicitly comparing subsequent placement sequences, although masonry-inspired rules encourage suitable support for later objects.
 This leaves two challenges: refining poses according to contact force redistribution throughout the structure and evaluating how current choices affect future feasible placements.
@@ -38,7 +38,7 @@ To make MCTS computationally practical, we introduce bodywise contact force copi
 Together with GPU-accelerated subADMM simulation~\cite{ji2025gpu}, this enables parallel candidate evaluation throughout the search tree (Figure~\ref{fig:overview}) which significantly accelerate the overall MCTS process.
 Our main contributions are as follows:
 \begin{itemize}[\setlength{\topsep}{2pt}\setlength{\parskip}{0pt}]
-\item A differentiable bilevel pose optimization formulation guided by target geometry and force and torque equilibrium across the entire structure.
-\item An MCTS framework for stacking with hierarchical node expansion and domain-specific rewards guiding lookahead toward target coverage and structural stability.
+\item A differentiable bilevel pose optimization formulation guided by the target shape $T$ and force and torque equilibrium across the entire structure.
+\item An MCTS framework for stacking with hierarchical node expansion and domain-specific rewards guiding lookahead toward the target coverage and structural stability.
 \item GPU-accelerated MCTS evaluation through bodywise ADMM for parallel contact force optimization within structures and batched pose optimization and simulation across candidates.
 \end{itemize}
