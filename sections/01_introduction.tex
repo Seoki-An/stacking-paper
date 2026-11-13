@@ -1,8 +1,9 @@
 \section{Introduction} \label{sec:introduction}
 
-Stacking is a fundamental problem with applications in bin packing, industrial warehouse storage~\cite{wang2022binpacking,huang2023binpacking}, and stone-wall construction~\cite{johns2020autonomous}.
-In freestanding stacking, the resulting structure must approximate a prescribed target shape while maintaining force and torque equilibrium under contact forces and gravity, without support from an enclosing container.
-For $n$ irregular objects, this geometric goal can be expressed as minimizing the unfilled volume of a target shape $\target\subset\real^3$, subject to physical feasibility:
+Stacking is a fundamental problem with applications in bin packing, industrial warehouse storage, and stone-wall construction~\cite{johns2020autonomous}.
+In robotic bin packing, container walls can provide lateral support~\cite{wang2022binpacking,huang2023binpacking}.
+Without such support, freestanding stacking of $n$ irregular objects must approximate a prescribed target shape $\target\subset\real^3$ while maintaining force and torque equilibrium under gravity through inter-object and ground contacts.
+This goal can be expressed as minimizing unfilled target volume subject to physical feasibility:
 \begin{gather}
 \min_{q_1,\cdots,q_n\in\SE(3)} \vol\left(\target\backslash\bigcup_{i=1}^{n}\object_i(q_i)\right)\quad\text{s.t.} \label{eq:problem_definition}\\
 c_\text{phys}(\object_1(q_1),\cdots,\object_n(q_n))=0, \nonumber
@@ -17,13 +18,12 @@ Planning its construction therefore involves combinatorial choices of objects an
 % Queue the two-column overview on page 1 so it appears at the top of page 2.
 \input{figures/overview.tex}
 
-Robotic bin-packing methods consider placement stability within containers~\cite{wang2022binpacking,huang2023binpacking}, where enclosing walls can provide lateral support unavailable in freestanding construction.
-More directly related, Johns et al.~\cite{johns2020autonomous,johns2023framework} construct freestanding stone walls by geometrically aligning the surfaces of the stones, followed by simulation-based stability checks, while Liu and Napp~\cite{liu2023stability} combine heuristic filtering with simulation-based assessments of structural strength to select placements.
-These stone-stacking methods do not use equilibrium across the entire structure to guide continuous pose refinement.
-Furthermore, they select placements using the current structure without explicitly comparing subsequent placement sequences, although masonry-inspired rules encourage suitable support for later objects.
-This leaves two challenges: refining poses according to contact force redistribution throughout the structure and evaluating how current choices affect future feasible placements.
-
-We address these challenges through pose optimization incorporating structural stability and GPU-accelerated Monte Carlo Tree Search (MCTS) for sequence planning.
+However, existing automated irregular object stacking approaches offer limited reflection of the structural stability into pose refinement and limited consideration of subsequent placement sequences.
+Johns et al.~\cite{johns2020autonomous,johns2023framework} use masonry heuristics to guide stone arrangement in freestanding walls, together with geometric alignment of stone surfaces and simulation-based stability checks.
+Liu and Napp~\cite{liu2023stability} select placements through heuristic filtering and simulation-based assessments of structural strength.
+Although these approaches evaluate physical stability, they do not use force and torque equilibrium across the entire structure to guide continuous pose refinement.
+Their consideration of future placements relies on masonry heuristics rather than explicit comparison of alternative placement sequences.
+We address these limitations through pose optimization incorporating structural stability and GPU-accelerated Monte Carlo Tree Search (MCTS) for sequence planning.
 
 Unlike prior stacking methods, we formulate placement refinement as a constrained bilevel problem and compute pose gradients of the objective and constraints using differentiable support functions (DSFs) for shape representation and collision detection~\cite{lee2023uncertain,an2024riemannianmtd}.
 Bilevel formulations also appear in contact-aware manipulation planning and grasp generation~\cite{lee2025contactfactorgraph,zurbrugg2025graspqp,chen2025bodex}.
