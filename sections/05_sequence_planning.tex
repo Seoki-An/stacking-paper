@@ -1,13 +1,14 @@
 \section{Sequence Planning via Parallel MCTS}\label{sec:sequence_planning}
 
-Building on Sec.~\ref{sec:overview}, we combine batched MCTS~\cite{huang2022pmbs} with parallel pose optimization, sampling, simulation, and domain-specific rewards (Fig.~\ref{fig:overview}).
-In receding-horizon planning, we search a limited horizon, execute one selected placement, and replan from the observed scene.
+To account for how each placement affects subsequent placements, we use batched MCTS~\cite{huang2022pmbs} to explore placement sequences from the current scene.
+Candidate placements are sampled, refined, and evaluated in parallel using the modules introduced in Sec.~\ref{sec:overview} (Fig.~\ref{fig:overview}).
 
 \subsection{Batched Search Procedure}\label{sec:mcts}
 
 \noindent \textbf{Batched Selection.}
-Colored paths in the ``Batched selection'' panel (Fig.~\ref{fig:overview}) terminate at expansion requests $b_j$.
-Over selectable child actions of $\node_p$, we define
+We follow evaluated, feasible children using PUCT to select nodes for batched expansion.
+The colored paths in Fig.~\ref{fig:overview} terminate at the resulting expansion requests $b_j$.
+For a child $\node$ reached by action $a$ from parent $\node_p$, we define the action prior over selectable child actions as
 \begin{equation*}
  P(\node_p,a)=\operatorname{softmax}_{a}\!\left(w_\object\rho_\object^{\mathrm{pre}}(a)-w_E e(a)\right),
 \end{equation*}
@@ -21,7 +22,6 @@ Writing $N_{\node}=N(\node)$ and similarly for $Q,\hat N$, we select evaluated c
 \end{equation}
 where $c>0$ controls exploration, $\tmpvisit$ counts temporary reservations, and the first term is zero when its denominator is zero.
 We use progressive widening~\cite{couetoux2011continuousuct} during tree search to expand the set of candidate placements as visits accumulate.
-Selection follows evaluated, feasible children using PUCT until a node is chosen for expansion.
 Reservations prevent duplicate batch evaluations without increasing the widening allowance.
 
 \noindent \textbf{Parallel Expansion and Evaluation.}
@@ -31,20 +31,21 @@ Each colored row in Fig.~\ref{fig:overview} evaluates one request through $\init
 For nonterminal, feasible leaves, we replace rollouts with $\hat V(\node)=\hat r\sum_{j=0}^{\depth_{\node}-1}\gamma^j$, where $\depth_{\node}$ counts future placements in the estimate, capped by remaining search depth and inventory.
 The fixed hyperparameter $\hat r$ sets a heuristic per-step reward for unexplored continuations, influencing exploration through backpropagated returns alongside PUCT.
 Failed or terminal nodes have $\hat V=0$.
-Following the arrows in the ``Backpropagation'' panel (Fig.~\ref{fig:overview}), we propagate $r_{\node}+\gamma\hat V(\node)$, with incoming reward $r_{\node}$, toward the root, adding discounted ancestor rewards, updating $Q,N$, and clearing reservations.
+We propagate $r_{\node}+\gamma\hat V(\node)$, with incoming reward $r_{\node}$, toward the root, adding discounted ancestor rewards, updating $Q,N$, and clearing reservations.
 
 \noindent \textbf{Action Selection and Tree Reuse.}
-As shown at the bottom right of Fig.~\ref{fig:overview}, we select the feasible root action maximizing
+We select the feasible root action maximizing
 \begin{equation*}
   J(a)=(1-\beta)Q(\node_a)+\beta G(a),\qquad \beta\in[0,1].
 \end{equation*}
-Here $\node_a$ is the root child reached by $a$, and $G(a)$ is the maximum discounted observed return over the deepest evaluated feasible paths below $a$, including its reward but excluding bootstrap values; root-only paths are eligible.
+Here $\node_a$ is the root child reached by $a$.
+$G(a)$ is the maximum discounted sum of observed rewards $r_{\node}$ over the deepest evaluated feasible paths starting with $a$ within the search horizon, excluding the heuristic leaf estimate $\hat V$.
+Without a feasible continuation, $G(a)=r_{\node_a}$.
 This term offsets exploration failures that depress $Q$ despite promising paths. If no root action is feasible, no placement is returned.
 
-After execution, the observed successor becomes the root.
+We execute the selected placement and replan from the observed successor state, which becomes the new root.
 We retain descendants and statistics only if the observed state and planning context match the subtree, discarding it otherwise.
 
-The following subsections describe the sampling and simulation modules and the reward design used in this MCTS framework.
 \input{figures/mcts_example.tex}
 
 \subsection{Initial Pose Sampling}\label{sec:initial_pose_sampling}
@@ -58,7 +59,7 @@ For object $i$, orientation $R$, and feasible planar location $\planar$, the sco
 with positive weights. The terms measure predicted bottom support fraction, unfilled layer area beneath the footprint, feasible-boundary proximity, normalized mean contact height, and a bounded footprint-gap penalty to the preceding object (zero for the first placement).
 Following Menezes et al.~\cite{menezes2021rocks}, floor and boundary preferences encourage filling empty regions and building inward from the boundary.
 
-We combine elite selection with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$.
+We combine top-scoring proposals with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$.
 We initialize height so the candidate's lowest point lies above the base plane and the bounding-box tops of objects with overlapping padded XY bounds, with added clearance (Fig.~\ref{fig:score_map}(c)).
 Geometric filters constrain planar displacement and placement height after refinement and settling.
 % Root proposals also use XY/yaw mutations. Displacement is measured from the
@@ -67,7 +68,7 @@ Geometric filters constrain planar displacement and placement height after refin
 
 \subsection{Simulation Module}\label{sec:simulation}
 At every search depth, $\simul$ first settles the candidate for a fixed time duration with existing objects fixed, then resets velocities and simulates the entire structure.
-Settling requires a minimum duration and sustained low mass-normalized kinetic energy; excessive accumulated motion, invalid contacts, or timeout reject the placement.
+Settling requires a minimum time duration and sustained low kinetic energy; excessive accumulated motion or timeout reject the placement.
 
 The settled scene defines $\state'=\transition(\state,\action)$.
 From rest in $\state'$, independent disturbance trials apply a force of magnitude $\alpha m_{i_{k+1}}g$ at the candidate's center of mass for $\Delta t_f$, in $n_d$ evenly spaced horizontal directions ($\alpha>0$, gravitational acceleration $g$).
@@ -78,13 +79,14 @@ GPU-accelerated subADMM~\cite{ji2025gpu} evaluates independent candidates in par
 \input{figures/initial_pose_sampling.tex}
 
 \subsection{Reward Design}\label{sec:reward}
+We define the reward function used to evaluate placements in MCTS.
 For the new object $i=i_{k+1}$ at its settled successor pose $q_i'$ (Sec.~\ref{sec:simulation}), define
 \begin{equation*}
  \rho_\target=\frac{\vol\bigl(\object_i(q_i')\cap\target\bigr)}{\vol(\target)},
  \quad
  \rho_\object=\frac{\vol\bigl(\object_i(q_i')\cap\target\bigr)}{\vol(\object_i)}.
 \end{equation*}
-These voxel-estimated volume ratios reward target filling and containment. For feasible transitions, with fixed normalization scales absorbed into positive weights,
+These voxel-estimated volume ratios reward target filling and containment. For feasible transitions, the reward is defined as
 \begin{equation*}
 \begin{split}
  r(\state,\action)={}&w_\target\rho_\target+w_\object[\rho_\object-\tfrac12]_+

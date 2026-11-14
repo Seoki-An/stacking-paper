@@ -11,7 +11,7 @@ Menezes et al.~\cite{menezes2021rocks} learn placement values reflecting future 
 Bilevel manipulation and grasp planners refine configurations using optimized contact forces.
 Lee et al.~\cite{lee2025contactfactorgraph} use contact factors and the envelope theorem under a predefined task skeleton.
 GraspQP~\cite{zurbrugg2025graspqp} differentiates the Karush--Kuhn--Tucker (KKT) conditions of a force-closure quadratic program.
-BODex~\cite{chen2025bodex} combines bilevel grasp optimization with GPU-batched force solves, using finite differences or detached contact points for contact refinement.
+BODex~\cite{chen2025bodex} batches GPU force solves, using finite differences for coarse contact derivatives and holding link-frame contact coordinates fixed during fine-stage differentiation.
 We differentiate DSF contact geometry at regular solutions to account for force and torque equilibrium across the entire structure.
 
 \subsection{Simulation-Based Sequential Manipulation Planning}
