@@ -1,20 +1,19 @@
 \section{Related Works} \label{sec:related_works}
 
 \subsection{Robotic Packing and Stone Stacking}
-Wang and Hauser~\cite{wang2022binpacking} evaluate pile equilibrium in containers via linear programming, without using equilibrium residuals for pose refinement.
-
-Johns et al.~\cite{johns2020autonomous,johns2023framework} combine masonry rules, candidate contact force optimization, registration, and simulation for freestanding wall construction, but pose updates do not account for contact force redistribution across the structure.
-
-Liu et al.~\cite{liu2021drystacking} filter simulation-settled poses geometrically; Liu and Napp~\cite{liu2023stability} additionally evaluate structural strength through shake tests, without searching future placements.
+Packing and stacking combine geometric criteria with stability assessment.
+For container packing, Wang and Hauser~\cite{wang2022binpacking} evaluate pile equilibrium via linear programming.
+For freestanding walls, Johns et al.~\cite{johns2020autonomous,johns2023framework} combine masonry rules, candidate contact force optimization, geometric alignment, and simulation.
+Liu et al.~\cite{liu2021drystacking} geometrically filter simulation-settled poses, with Liu and Napp~\cite{liu2023stability} adding shake tests for structural strength.
 Menezes et al.~\cite{menezes2021rocks} learn placement values reflecting future rewards with fixed object sequences and orientations.
-We instead combine whole-structure equilibrium-guided pose refinement with search over object choices and placement poses.
 
 \subsection{Contact-Aware Pose Optimization}
-Lee et al.~\cite{lee2025contactfactorgraph} use differentiable contact factors and the envelope theorem for configuration inference after force optimization under a predefined task skeleton.
-GraspQP~\cite{zurbrugg2025graspqp} refines grasps through KKT differentiation of a force-closure QP.
-BODex~\cite{chen2025bodex} couples bilevel grasp optimization with batched GPU contact force solves using ReLU-QP.
-Its contact refinement uses finite differences or detached contact points, whereas we differentiate DSF contact geometry at regular solutions.
+Bilevel manipulation and grasp planners refine configurations using optimized contact forces.
+Lee et al.~\cite{lee2025contactfactorgraph} use contact factors and the envelope theorem under a predefined task skeleton.
+GraspQP~\cite{zurbrugg2025graspqp} differentiates the Karush--Kuhn--Tucker (KKT) conditions of a force-closure quadratic program.
+BODex~\cite{chen2025bodex} combines bilevel grasp optimization with GPU-batched force solves, using finite differences or detached contact points for contact refinement.
+We differentiate DSF contact geometry at regular solutions to account for force and torque equilibrium across the entire structure.
 
 \subsection{Simulation-Based Sequential Manipulation Planning}
-PMBS~\cite{huang2022pmbs} combines parallel MCTS with GPU simulation for object retrieval from clutter.
-We adopt batched evaluation, adding parallel whole-structure contact force optimization for pose refinement before simulation at each expansion.
+PMBS~\cite{huang2022pmbs} batches GPU physics simulations during MCTS expansion and rollout for object retrieval from clutter.
+We adopt batched expansion, adding parallel pose refinement with contact force optimization for the entire structure before simulation.

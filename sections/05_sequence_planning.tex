@@ -1,7 +1,7 @@
 \section{Sequence Planning via Parallel MCTS}\label{sec:sequence_planning}
 
-Building on Sec.~\ref{sec:overview}, we combine batched MCTS~\cite{huang2022pmbs} with parallel pose optimization, sampling, simulation, and task-specific rewards (Fig.~\ref{fig:overview}).
-We use a receding-horizon strategy: search considers a limited horizon of future placements, but only one selected placement is executed before replanning from the observed scene.
+Building on Sec.~\ref{sec:overview}, we combine batched MCTS~\cite{huang2022pmbs} with parallel pose optimization, sampling, simulation, and domain-specific rewards (Fig.~\ref{fig:overview}).
+In receding-horizon planning, we search a limited horizon, execute one selected placement, and replan from the observed scene.
 
 \subsection{Batched Search Procedure}\label{sec:mcts}
 
@@ -20,11 +20,12 @@ Writing $N_{\node}=N(\node)$ and similarly for $Q,\hat N$, we select evaluated c
     \label{eq:puct}
 \end{equation}
 where $c>0$ controls exploration, $\tmpvisit$ counts temporary reservations, and the first term is zero when its denominator is zero.
-Non-root progressive widening~\cite{couetoux2011continuousuct} increases candidate counts with completed visits; reservations prevent duplicate batch evaluations without increasing this allowance.
+We use progressive widening~\cite{couetoux2011continuousuct} during tree search to expand the set of candidate placements as visits accumulate.
+Selection follows evaluated, feasible children using PUCT until a node is chosen for expansion.
+Reservations prevent duplicate batch evaluations without increasing the widening allowance.
 
 \noindent \textbf{Parallel Expansion and Evaluation.}
 Each colored row in Fig.~\ref{fig:overview} evaluates one request through $\initpose\to\poseopt\to\simul$; rows run in parallel using the pose optimizer of Sec.~\ref{sec:pose_optimization}.
-Selection descends only through evaluated successors and excludes failed candidates.
 
 \noindent \textbf{Leaf Value Estimation and Backpropagation.}
 For nonterminal, feasible leaves, we replace rollouts with $\hat V(\node)=\hat r\sum_{j=0}^{\depth_{\node}-1}\gamma^j$, where $\depth_{\node}$ is capped by remaining search depth and inventory.
@@ -40,8 +41,8 @@ As shown at the bottom right of Fig.~\ref{fig:overview}, we select the feasible 
 Here $G(a)$ is the maximum discounted observed return over the deepest evaluated feasible paths below $a$, including its reward but excluding bootstrap values; root-only paths are eligible.
 This term offsets exploration failures that depress $Q$ despite promising paths. If no root action is feasible, no placement is returned.
 
-After executing the selected placement, we advance the root to the observed successor and repeat the search.
-Descendants and statistics are retained only when the observed state and planning context match the subtree; otherwise, the affected subtree is discarded.
+After execution, the observed successor becomes the root.
+We retain descendants and statistics only if the observed state and planning context match the subtree, discarding it otherwise.
 
 Figure~\ref{fig:mcts_example} compares the resulting planner with greedy placement.
 \input{figures/mcts_example.tex}
@@ -65,12 +66,12 @@ Geometric filters constrain planar displacement and placement height after refin
 % Equilibrium rejection before simulation is defined in Reward Design.
 
 \subsection{Simulation Module}\label{sec:simulation}
-At every search depth, $\simul$ first settles the candidate for a fixed duration with existing objects fixed, then resets velocities and simulates the entire structure.
+At every search depth, $\simul$ first settles the candidate for a fixed time duration with existing objects fixed, then resets velocities and simulates the entire structure.
 Settling requires a minimum duration and sustained low mass-normalized kinetic energy; excessive accumulated motion, invalid contacts, or timeout reject the placement.
 
 The settled scene defines $\state'=\transition(\state,\action)$.
 From rest in $\state'$, independent disturbance trials apply a force of magnitude $\alpha m_{i_{k+1}}g$ at the candidate's center of mass for $\Delta t_f$, in $n_d$ evenly spaced horizontal directions ($\alpha>0$, gravitational acceleration $g$).
-With all objects dynamic, every trial must recover within tolerances without excessive pose excursion; trials do not alter $\state'$.
+With all objects dynamic, each trial must settle again without exceeding prescribed displacement limits relative to $\state'$; trials do not alter $\state'$.
 GPU-accelerated subADMM~\cite{ji2025gpu} evaluates independent candidates in parallel.
 
 % Delay the float to place Fig. 6 at the top of the right column.
@@ -106,5 +107,5 @@ Disturbance sensitivity measures motion from settled poses $q_l'$ during force t
 \begin{equation*}
  D=\min\!\left\{D_{\max},\max_{j,l,t}d_{\SE(3)}\bigl(q_l^{(j)}(t),q_l'\bigr)\right\},
 \end{equation*}
-Here $q_l^{(j)}(t)$ is object $l$'s pose in trial $j$ at time $t$; the maximum spans all trials, objects, and simulation times including recovery, capped by $D_{\max}$.
-The distance $d_{\SE(3)}$ sums translation distance and angular distance weighted by $\lambda_\theta>0$. Feasibility rejection is independent of reward.
+Here $q_l^{(j)}(t)$ is object $l$'s pose in trial $j$ at time $t$. The maximum spans all trials, objects, and simulation times including recovery.
+The distance $d_{\SE(3)}$ sums translation distance and angular distance weighted by $\lambda_\theta>0$.

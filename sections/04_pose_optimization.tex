@@ -51,22 +51,20 @@ The physical objective excludes the ground's equilibrium residual:
   \quad + w_\mathrm{cp}\sum_{j \in I_{i_{k+1}}}\sd_j(q)^2 \|\lambda_j\|^2 + w_\mathrm{reg}\sum_{j = 1}^{n_c} \|\lambda_j\|^2
   \label{eq:force_objective}
 \end{IEEEeqnarray}
-The three terms respectively penalize violations of static equilibrium, contact complementarity between the candidate and the current scene, and large contact forces through regularization.
-Figure~\ref{fig:pose_optimization_toy} illustrates why equilibrium is evaluated across the structure rather than only for the candidate.
+The three terms respectively penalize static equilibrium residuals, violations of contact complementarity between the candidate and the current scene, and large contact forces.
+Figure~\ref{fig:pose_optimization_toy} illustrates the effect of evaluating equilibrium across the entire structure on candidate placement.
 The weight matrix $W\succ0$ balances force and moment scales.
 Here, $\sd_j(q)$ is the signed distance between the bodies of contact candidate $j$; $J_{c,I_l}$, $\lambda_{\mathrm{ext},l}$, and $\lambda_{I_l}$ are object $\object_l$'s contact Jacobian, external wrench, and contact force vector, respectively; and $w_\mathrm{eq},w_\mathrm{cp},w_\mathrm{reg}>0$ are objective weights.
 
-Finally, each $g_{\mathrm{cone},j}(\cdot)$ is the smoothed friction cone
-constraints for the $j$-th contact point defined by
+Finally, the smoothed friction cone constraint at contact $j$ is
+$g_{\mathrm{cone},j}(q,\lambda_j)\leq 0$, where
 \begin{equation}
   g_{\mathrm{cone},j}(q, \lambda_j) = \sqrt{\|J_{c,j}^t \lambda_j \|^2 + \epsilon} - \mu_j  J_{c,j}^n \lambda_j
   \label{eq:friction_cone}
 \end{equation}
-where $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint.
+Here, $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint.
 
-\input{figures/pose_optimization_toy.tex}
-
-\subsection{Upper-Level Problem Optimization on SE(3) Manifold}
+\subsection{Upper-Level Optimization on SE(3)}
 
 Let $\lambda^*(q)$ be the solution of the lower-level problem and define $f_\mathrm{phys}(q):=f_\mathrm{phys}(q,\lambda^*(q))$.
 The envelope theorem~\cite{carter2001matheconomics} gives
@@ -74,7 +72,7 @@ The envelope theorem~\cite{carter2001matheconomics} gives
   \frac{df_\mathrm{phys}(q)}{dq} = \frac{\partial f_\mathrm{phys}(q, \lambda^*)}{\partial q} + \sum_{j=1}^{n_c} \nu^*_j \frac{\partial g_{\mathrm{cone},j}(q, \lambda^*_j)}{\partial q}
 \end{equation*}
 where $\nu^*_j$ is the optimal dual variable for the $j$-th friction cone constraint.
-Using the above gradient, we optimize the placement pose $q$ on SE(3) manifold based on the Riemannian trust-region method \cite{absil2007trust} combined with BFGS Hessian approximation \cite{huang2018riemannianbfgs}.
+Using this gradient, we optimize the placement pose $q$ on $\SE(3)$ using a Riemannian trust-region method~\cite{absil2007trust} with a BFGS Hessian approximation~\cite{huang2018riemannianbfgs}.
 A homotopy schedule adjusts the geometric and physical weights between stages, holding them fixed within each stage and initializing from the preceding pose.
 It progressively reduces $w_\mathrm{reg}$ to limit regularization-induced equilibrium residuals. Candidate evaluation uses the final pose and forces.
 
@@ -112,6 +110,9 @@ ADMM solves the body subproblems independently.
 An equivalent four-dimensional second-order cone (SOC) lifting enables closed-form cone projections for the friction updates, while consensus updates reduce to averaging.
 
 The pose optimization module is implemented using CUDA to leverage GPU parallelization for efficient computation of the gradients and the ADMM updates.
+
+% Queue the toy example here for the right column on page 4.
+\input{figures/pose_optimization_toy.tex}
 
 % Observe that each $\lambda_j$ acts on two objects $\object_l$ and $\object_m$ such that $j \in I_{l,m}$ for some $l, m \in \placed_{k+1}$ and $l < m$.
 % Then, the contact force $\lambda_j$ can be split into two variables $\lambda_{j,1}$ and $\lambda_{j,2}$ such that $\lambda_{j,1} = \lambda_{j,2}$ where $\lambda_{j,1}$ is the contact force acting on $\object_l$ and $\lambda_{j,2}$ is the contact force acting on $\object_m$.
