@@ -1,7 +1,7 @@
 \section{Sequence Planning via Parallel MCTS}\label{sec:sequence_planning}
 
-To account for how each placement affects subsequent placements, we use batched MCTS~\cite{huang2022pmbs} to explore placement sequences from the current scene.
-Candidate placements are sampled, refined, and evaluated in parallel using the modules introduced in Sec.~\ref{sec:overview} (Fig.~\ref{fig:overview}).
+To account for how each placement affects subsequent placements, we explore sequences from the current scene using batched MCTS with parallel candidate evaluation.
+Candidate placements are sampled, refined, and evaluated using the modules introduced in Sec.~\ref{sec:overview} (Fig.~\ref{fig:overview}).
 
 \subsection{Batched Search Procedure}\label{sec:mcts}
 
