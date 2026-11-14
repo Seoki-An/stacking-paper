@@ -28,7 +28,7 @@ Reservations prevent duplicate batch evaluations without increasing the widening
 Each colored row in Fig.~\ref{fig:overview} evaluates one request through $\initpose\to\poseopt\to\simul$; rows run in parallel using the pose optimizer of Sec.~\ref{sec:pose_optimization}.
 
 \noindent \textbf{Leaf Value Estimation and Backpropagation.}
-For nonterminal, feasible leaves, we replace rollouts with $\hat V(\node)=\hat r\sum_{j=0}^{\depth_{\node}-1}\gamma^j$, where $\depth_{\node}$ is capped by remaining search depth and inventory.
+For nonterminal, feasible leaves, we replace rollouts with $\hat V(\node)=\hat r\sum_{j=0}^{\depth_{\node}-1}\gamma^j$, where $\depth_{\node}$ counts future placements in the estimate, capped by remaining search depth and inventory.
 The fixed hyperparameter $\hat r$ sets a heuristic per-step reward for unexplored continuations, influencing exploration through backpropagated returns alongside PUCT.
 Failed or terminal nodes have $\hat V=0$.
 Following the arrows in the ``Backpropagation'' panel (Fig.~\ref{fig:overview}), we propagate $r_{\node}+\gamma\hat V(\node)$, with incoming reward $r_{\node}$, toward the root, adding discounted ancestor rewards, updating $Q,N$, and clearing reservations.
@@ -38,17 +38,17 @@ As shown at the bottom right of Fig.~\ref{fig:overview}, we select the feasible 
 \begin{equation*}
   J(a)=(1-\beta)Q(\node_a)+\beta G(a),\qquad \beta\in[0,1].
 \end{equation*}
-Here $G(a)$ is the maximum discounted observed return over the deepest evaluated feasible paths below $a$, including its reward but excluding bootstrap values; root-only paths are eligible.
+Here $\node_a$ is the root child reached by $a$, and $G(a)$ is the maximum discounted observed return over the deepest evaluated feasible paths below $a$, including its reward but excluding bootstrap values; root-only paths are eligible.
 This term offsets exploration failures that depress $Q$ despite promising paths. If no root action is feasible, no placement is returned.
 
 After execution, the observed successor becomes the root.
 We retain descendants and statistics only if the observed state and planning context match the subtree, discarding it otherwise.
 
-Figure~\ref{fig:mcts_example} compares the resulting planner with greedy placement.
+The following subsections describe the sampling and simulation modules and the reward design used in this MCTS framework.
 \input{figures/mcts_example.tex}
 
 \subsection{Initial Pose Sampling}\label{sec:initial_pose_sampling}
-The sampler $\initpose$ selects objects with volume bias and uses finite orientation sets, seeding empty scenes near feasible target corners.
+The sampler $\initpose$ gives larger objects more proposal attempts, uses finite orientation sets, and seeds empty scenes near feasible target corners.
 For object $i$, orientation $R$, and feasible planar location $\planar$, the score (Fig.~\ref{fig:score_map}) is
 \begin{equation*}
   \score(\planar\mid i,R)

@@ -19,13 +19,14 @@
 
 제안 문구는 `Without such support, a freestanding structure of n irregular objects must approximate a prescribed target shape ...`다. 이 수정은 아직 적용하지 않았다.
 
-### 2. MCTS 기호 정의
+### 2. MCTS 기호 정의 — 반영 완료
 
 파일 `sections/03_overview.tex`와 `sections/05_sequence_planning.tex`.
 
-- MDP 및 return 식의 `gamma`를 discount factor로 명시한다.
-- Leaf value 식의 `\depth_{\node}`가 나타내는 미래 placement 수를 정의한다. 현재는 remaining search depth와 inventory로 제한된다는 설명만 있다. 현재 노드의 깊이와 혼동되지 않도록 실제 구현에 맞춰 설명한다.
-- Action Selection의 `\node_a`가 root action `a`에 대응하는 child라는 구절을 추가한다.
+- MDP 정의에서 `gamma`를 discount factor로 명시했다.
+- Leaf value 식의 `\depth_{\node}`를 추정에 포함되는 미래 placement 수로 정의하고, remaining search depth와 inventory에 의해 제한된다는 설명을 유지했다.
+- Action Selection에서 `\node_a`가 root action `a`로 도달하는 child임을 명시했다.
+- 수정 후 컴파일은 총 6페이지다.
 
 ### 3. G(a)의 경로 범위
 
@@ -38,8 +39,7 @@
 
 ### 4. 압축된 표현의 명확성
 
-- `sections/05_sequence_planning.tex`의 `volume bias`는 어느 방향의 bias인지 드러나지 않는다. 큰 물체를 우선하는 실제 분포라면 이를 짧게 명시한다. 분포를 확인하지 않고 비례 관계를 단정하지 않는다.
-- 같은 파일의 `elite selection`은 높은 점수의 후보를 선택하는 역할이 드러나도록 풀어 쓸 수 있다.
+- `sections/05_sequence_planning.tex`의 `elite selection`은 높은 점수의 후보를 선택하는 역할이 드러나도록 풀어 쓸 수 있다.
 - `sections/02_related_works.tex`의 `detached contact points`는 contact point를 미분 중 고정한다는 의미를 전달하도록 검토한다. BODex의 실제 처리 및 기존 finite-difference 설명과 일치시킨다.
 
 ### 5. 제출용 정리
@@ -50,6 +50,7 @@
 
 ## 이번 논의에서 반영한 사항
 
+- Initial Pose Sampling의 `volume bias`를 큰 부피의 물체에 더 많은 proposal attempts를 배정한다는 설명으로 수정했다. 로컬 구현 요약에는 volume-proportional allocation과 per-stone attempt cap이 명시되어 있다. 본문은 배정 방향과 역할을 간결하게 설명한다.
 - 제목을 `Automated Stacking of Irregularly Shaped Stones via GPU-Accelerated Pose Optimization and Monte Carlo Tree Search`로 수정했다.
 - Introduction 두 번째 문단의 방법 소개 끝에 Figure 2 참조를 넣고 뒤쪽 GPU 문단의 중복 참조를 삭제했다.
 - Friction cone 설명에서 scalar function과 inequality constraint를 구분하고 단복수 오류 및 반복된 `where`를 수정했다.
@@ -64,6 +65,6 @@
 
 ## 후속 작업 범위
 
-우선 1번의 문장 수정과 2번의 기호 정의를 검토하고, 3번은 실제 코드의 경로 집계 규칙과 맞춘다. Progressive widening의 수치 설정이나 CEM 설명을 본문에 늘리는 방향은 이번 논의에서 채택하지 않았다. 코드 및 실험 결과를 새로 확인하지 않은 상태에서 성능 우위나 안정성 보장을 추가하지 않는다.
+2번의 기호 정의는 반영했다. 1번의 문장 수정은 남아 있으며, 3번은 실제 코드의 경로 집계 규칙과 맞춘다. Progressive widening의 수치 설정이나 CEM 설명을 본문에 늘리는 방향은 이번 논의에서 채택하지 않았다. 코드 및 실험 결과를 새로 확인하지 않은 상태에서 성능 우위나 안정성 보장을 추가하지 않는다.
 
 현재 문서화 단계에서는 위 미완료 항목을 원고에 자동 적용하지 않았다. Git 작업은 로컬 커밋 보관으로 진행한다.

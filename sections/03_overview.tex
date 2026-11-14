@@ -27,7 +27,7 @@ The state, action, and deterministic transition function are
 \end{equation*}
 where $i_{k+1}\in\inventory_k$. The transition inserts the proposed pose into the scene, simulates the resulting structure, and returns the settled scene with $\inventory_{k+1}=\inventory_k\setminus\{i_{k+1}\}$. 
 The reward $\reward(\state_k,\action_k)$ scores target-contained volume and physical quality; feasibility checks separately reject invalid transitions (Sec.~\ref{sec:sequence_planning}).
-The sequence planner therefore operates on the MDP $\mdp=(\mathcal{S},\mathcal{A},\transition,\reward,\gamma)$.
+The MDP is $\mdp=(\mathcal{S},\mathcal{A},\transition,\reward,\gamma)$, with discount factor $\gamma$.
 
 \subsection{Monte Carlo Tree Search}
 
