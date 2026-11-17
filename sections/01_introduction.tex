@@ -1,13 +1,13 @@
 \section{Introduction} \label{sec:introduction}
 
 Stacking is a fundamental problem with applications such as bin packing, industrial warehouse storage, and stone-wall construction.
-In robotic bin packing, container walls can provide lateral support~\cite{wang2022binpacking,huang2023binpacking}.
+In robotic bin packing, container walls can provide lateral support~\cite{wang2022binpacking}.
 Without such support, a freestanding structure of $n$ irregular objects must approximate a prescribed target shape $\target\subset\real^3$ while maintaining force and torque equilibrium under gravity through inter-object and ground contacts.
 Satisfying these requirements is challenging because pose changes of irregular objects alter both occupied space and contact locations and normals, coupling geometric fit with force and torque equilibrium across the entire structure.
-For a completed structure, this goal can be expressed as minimizing unfilled target volume subject to physical feasibility:
+We minimize unfilled target volume subject to containment and physical feasibility:
 \begin{gather}
 \min_{q_1,\cdots,q_n\in\SE(3)} \vol\left(\target\backslash\bigcup_{i=1}^{n}\object_i(q_i)\right)\quad\text{s.t.} \label{eq:problem_definition}\\
-c_\text{phys}(\object_1(q_1),\cdots,\object_n(q_n))=0, \nonumber
+c_\text{phys}(q_1,\cdots,q_n)=0,\quad \object_i(q_i)\subseteq\target\ \ \forall i. \nonumber
 \end{gather}
 where $\object_i(q_i)\subset\real^3$ is the region occupied by object $i$ at pose $q_i\in\SE(3)$, $\vol(\cdot)$ denotes volume, and $c_\text{phys}=0$ represents stability and non-interpenetration constraints.
 Constructing such a structure also requires selecting objects, determining which objects support one another, and deciding in what order to place them.
@@ -19,25 +19,26 @@ These interdependent discrete choices make sequence planning combinatorial, whil
 % Queue the two-column overview on page 1 so it appears at the top of page 2.
 \input{figures/overview.tex}
 
-However, existing automated approaches to stacking irregular objects make limited use of structural stability information to refine poses and give limited consideration to subsequent placement sequences.
-Johns et al.~\cite{johns2020autonomous,johns2023framework} use masonry heuristics to guide stone arrangement in freestanding walls, together with geometric alignment of stone surfaces and simulation-based stability checks.
-Liu and Napp~\cite{liu2023stability} select placements through heuristic filtering and simulation-based assessments of structural strength.
-Although these approaches evaluate structural stability, they do not use force and torque equilibrium across the entire structure to guide continuous pose refinement.
-Their consideration of future placements relies on masonry heuristics rather than explicit comparison of alternative placement sequences.
-We address these limitations through pose optimization incorporating structural stability and GPU-accelerated Monte Carlo Tree Search (MCTS) for sequence planning (Figure~\ref{fig:overview}).
+For freestanding stone walls, Johns et al.~\cite{johns2020autonomous,johns2023framework} combine masonry heuristics, contact force optimization, geometric alignment, and simulation; Liu and Napp~\cite{liu2023stability} use heuristic filtering and simulation-based structural strength assessments.
+These methods assess stability but do not use equilibrium across the entire structure to guide continuous pose refinement or explicitly compare alternative placement sequences.
+Menezes et al.~\cite{menezes2021rocks} learn placement values reflecting future rewards, with fixed object sequences and orientations.
 
-Unlike prior stacking methods, we formulate placement refinement as a constrained bilevel problem, following formulations used in contact-aware manipulation planning and grasp synthesis~\cite{chen2025bodex,lee2025contactfactorgraph,zurbrugg2025graspqp}.
-The lower-level problem optimizes contact forces across all stones, including the candidate, to evaluate force and torque balance throughout the structure, with shared contact forces coupling contacting bodies.
-The upper-level problem refines the placement pose using gradients of this optimized physical objective together with geometric objectives, enabled by differentiable support functions (DSFs) and the associated collision detection~\cite{lee2023uncertain,an2024riemannianmtd}.
+We propose a GPU-accelerated stacking framework that integrates structure-wide equilibrium-guided pose refinement with Monte Carlo Tree Search (MCTS) over placement sequences (Fig.~\ref{fig:overview}).
+The framework couples continuous placement refinement with discrete lookahead, so candidate poses are optimized before their effects on subsequent placements are evaluated.
 
-In addition, rather than relying solely on masonry heuristics, we use MCTS to plan stacking sequences, explicitly accounting for how each placement affects subsequent placements.
-To adapt MCTS to stacking, the proposed hierarchical node expansion strategy progressively refines and validates candidate placements through initial pose sampling, pose optimization, and simulation-based feasibility checking.
-Domain-specific rewards further guide the search toward target shape coverage and structural stability.
+For pose refinement, we formulate a differentiable bilevel problem that accounts for the candidate's effect on force and torque equilibrium throughout the structure.
+The lower level optimizes shared contact forces across all stones; the upper level refines the candidate pose using gradients of the optimized physical objective and geometric objectives.
+Differentiable support functions (DSFs)~\cite{lee2023uncertain,an2024riemannianmtd} provide pose-dependent contact geometry for these gradients.
+This formulation builds on contact-force-based manipulation and grasp optimization~\cite{lee2025contactfactorgraph,zurbrugg2025graspqp,chen2025bodex}, extending the optimization to the coupled equilibrium of the growing stack.
+In particular, BODex~\cite{chen2025bodex} uses finite differences for coarse contact derivatives and fixed link-frame contact coordinates during fine-stage differentiation; our pose updates differentiate DSF contact geometry.
 
-Repeated pose optimization and simulation make MCTS computationally demanding.
-Recent robotics research exploits GPU parallelism to accelerate optimization~\cite{sundaralingam2023curobo,chen2025bodex} and physical simulation~\cite{ji2025gpu}.
-Following this direction, we introduce bodywise contact force copies and an alternating direction method of multipliers (ADMM) to decompose the coupled force optimization into parallel bodywise updates, with consensus enforcing consistency between the copies.
-Combined with GPU-accelerated subADMM simulation, this enables batched pose optimization and simulation across independent candidates to accelerate MCTS.
+For sequence planning, we develop a hierarchical MCTS expansion that samples candidate placements, refines their poses, and validates the resulting structures through simulation.
+Domain-specific rewards guide lookahead toward target coverage and structural stability, allowing the search to account for how each placement changes future options.
+PMBS~\cite{huang2022pmbs} demonstrates batched simulation within MCTS for clutter retrieval; our expansion additionally incorporates structure-wide equilibrium-guided pose optimization before simulation.
+
+To reduce the cost of these repeated evaluations, we parallelize computation both within each structure and across candidates.
+We introduce bodywise contact force copies and an alternating direction method of multipliers (ADMM) to decompose the coupled force optimization into parallel bodywise updates, with consensus enforcing contact-force consistency.
+Both pose optimization and subADMM simulation~\cite{ji2025gpu} are GPU-accelerated and batched across independent candidates, enabling parallel evaluation of alternative placements throughout the search.
 Our main contributions are as follows:
 \begin{itemize}[\setlength{\topsep}{2pt}\setlength{\parskip}{0pt}]
 \item A differentiable bilevel pose optimization formulation guided by the target shape $T$ and force and torque equilibrium across the entire structure.

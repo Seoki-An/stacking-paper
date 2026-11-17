@@ -1,7 +1,6 @@
-\section{Pose Optimization} \label{sec:pose_optimization}
+\section{Bilevel Pose Optimization} \label{sec:pose_optimization}
 
-The module $\poseopt$ refines $\hat q_{k+1}$ from $\initpose$ toward a stable,
-physically feasible placement $q_{k+1}$.
+Given an initial pose $\hat q_{k+1}$, we refine the candidate placement through bilevel optimization of its pose and contact forces across the structure.
 
 \subsection{Single Object Pose Optimization Problem}
 
@@ -37,24 +36,32 @@ With $\dsf_{\object(q)}(u)=\max_j\dsf_{\convex_{i_{k+1},j}(q)}(u)$, we define
     f_\mathrm{in}(q) & =\bigl[-m_\mathrm{in}(q)\bigr]_+^2.
   \end{aligned}
 \end{equation*}
-This term penalizes violations of containment of the entire object within a single convex target component, a conservative condition for containment in $\target$.
+For convex $\target_j$, the inner minimum is nonnegative iff $\object(q)\subseteq\target_j$.
+The maximum over $j$ thus tests whether any target component contains the entire object.
+We use $f_\mathrm{in}$ as a soft penalty for this sufficient, conservative condition for $\object(q)\subseteq\target$.
 Noting that the term is differentiable almost everywhere in $q$, we compute pose derivatives at regular inner solutions by implicit differentiation.
 Nonsmooth transitions have not caused practical difficulties in our implementation.
 
 \input{figures/pose_optimization.tex}
 
 Let $\placed_{k+1}:=\placed_k\cup\{i_{k+1}\}$ and let $I_l\subseteq\{1,\ldots,n_c\}$ index all contacts involving object $l$, including ground contacts.
-The physical objective excludes the ground's equilibrium residual:
+Define each object's equilibrium residual as
+\begin{equation*}
+ \mathbf e_l(q,\lambda_{I_l})=J_{c,I_l}^\top(q)\lambda_{I_l}+\lambda_{\mathrm{ext},l}.
+\end{equation*}
+The physical objective excludes the ground's residual:
 \begin{IEEEeqnarray}{l}
   f_\mathrm{phys}(q,\lambda)
-  = w_\mathrm{eq}\sum_{l \in \placed_{k+1}} \|J_{c,I_l}^\top(q)  \lambda_{I_l} + \lambda_{\mathrm{ext},l}\|_W^2 \nonumber \\
+  = w_\mathrm{eq}\sum_{l \in \placed_{k+1}} \|\mathbf e_l(q,\lambda_{I_l})\|_W^2 \nonumber \\
   \quad + w_\mathrm{cp}\sum_{j \in I_{i_{k+1}}}\sd_j(q)^2 \|\lambda_j\|^2 + w_\mathrm{reg}\sum_{j = 1}^{n_c} \|\lambda_j\|^2
   \label{eq:force_objective}
 \end{IEEEeqnarray}
 The three terms respectively penalize static equilibrium residuals, violations of contact complementarity between the candidate and the current scene, and large contact forces.
-Figure~\ref{fig:pose_optimization_toy} illustrates the effect of evaluating equilibrium across the entire structure on candidate placement.
 The weight matrix $W\succ0$ balances force and moment scales.
 Here, $\sd_j(q)$ is the signed distance between the bodies of contact candidate $j$; $J_{c,I_l}$, $\lambda_{\mathrm{ext},l}$, and $\lambda_{I_l}$ are object $\object_l$'s contact Jacobian, external wrench, and contact force vector, respectively; and $w_\mathrm{eq},w_\mathrm{cp},w_\mathrm{reg}>0$ are objective weights.
+
+Only the candidate pose varies, but shared contact forces couple all $\mathbf e_l$ in~\eqref{eq:force_objective}.
+In Fig.~\ref{fig:pose_optimization_toy}, including the beam's residual $\mathbf e_{\mathrm{beam}}$ drives the candidate toward the support; candidate-only equilibrium omits this imbalance.
 
 Finally, the smoothed friction cone constraint at contact $j$ is
 $g_{\mathrm{cone},j}(q,\lambda_j)\leq 0$, where
@@ -63,6 +70,37 @@ $g_{\mathrm{cone},j}(q,\lambda_j)\leq 0$, where
   \label{eq:friction_cone}
 \end{equation}
 Here, $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint.
+
+\subsection{Lower-Level Problem Optimization with ADMM}
+
+For fixed $q$, the lower-level problem is convex in $\lambda$.
+To apply bodywise ADMM~\cite{boyd2011distributed}, we introduce two local copies $\lambda_{j,1}$ and $\lambda_{j,2}$ per contact, one for each contacting body, including the ground.
+Let $\mathcal B=\placed_{k+1}\cup\{i_0\}$ and collect body $l$'s incident copies into $\tilde\lambda_l$.
+With $s(l,j)\in\{1,2\}$ selecting its copy of contact $j$, define
+\begin{equation*}
+\begin{aligned}
+ a_j(q)&=w_\mathrm{reg}+w_\mathrm{cp}\mathbf 1_{\{j\in I_{i_{k+1}}\}}\sd_j(q)^2,\\
+ f_l(q,\tilde\lambda_l)&=w_\mathrm{eq}\|\mathbf e_l(q,\tilde\lambda_l)\|_W^2\\
+ &\quad+\tfrac12\sum_{j\in I_l}a_j(q)\|\lambda_{j,s(l,j)}\|^2.
+\end{aligned}
+\end{equation*}
+Here $\mathbf e_l$ uses the local copies, and $\mathbf e_{i_0}:=0$.
+The factor $1/2$ splits each contact penalty between its two bodies, so consensus recovers~\eqref{eq:force_objective}:
+\begin{IEEEeqnarray*}{rCl}
+  \min_{\tilde{\lambda},z}
+  &{\quad}&
+  \sum_{l\in\mathcal B}f_l(q,\tilde\lambda_l)
+  + \sum_{\substack{j = 1,\ldots,n_c \\ s = 1,2}}
+  \delta_{K_j}(z_{j,s}) \\
+  \mathrm{s.t.}
+  &{\quad}&
+  \lambda_{j,1} = \lambda_{j,2} = z_{j,1} = z_{j,2},
+  \qquad j = 1,\ldots,n_c.
+\end{IEEEeqnarray*}
+where $z_{j,s}$ are auxiliary variables and $\delta_{K_j}$ is the indicator of $K_j := \{\lambda\in\real^3\mid g_{\mathrm{cone},j}(q,\lambda)\leq0\}$.
+The $f_l$ are quadratic in disjoint variable blocks, enabling parallel body updates; contactwise consensus averaging and dual updates couple these solves.
+An equivalent four-dimensional second-order cone (SOC) lifting enables closed-form cone projections for friction updates.
+CUDA batches these body and contact updates across candidate structures, followed by gradient evaluation for upper-level pose refinement.
 
 \subsection{Upper-Level Optimization on SE(3)}
 
@@ -87,29 +125,6 @@ It progressively reduces $w_\mathrm{reg}$ to limit regularization-induced equili
 %   \caption{Toy example of comparing the overall structural stability of the scene and the local structural stability of the candidate object.}
 %   \label{fig:toy_example}
 % \end{figure}
-
-\subsection{Lower-Level Problem Optimization with ADMM}
-
-For fixed $q$, the lower-level problem is convex in $\lambda$.
-To apply bodywise ADMM~\cite{boyd2011distributed}, we introduce two local copies $\lambda_{j,1}$ and $\lambda_{j,2}$ per contact, one for each contacting body, including the ground.
-Collecting these copies into $\tilde{\lambda}$ makes each body's equilibrium residual depend only on its local variables.
-Consensus and friction constraints give the reformulation
-\begin{IEEEeqnarray*}{rCl}
-  \min_{\tilde{\lambda},z}
-  &{\quad}&
-  \tilde{f}_\mathrm{phys}(q,\tilde{\lambda})
-  + \sum_{\substack{j = 1,\ldots,n_c \\ s = 1,2}}
-  \delta_{K_j}(z_{j,s}) \\
-  \mathrm{s.t.}
-  &{\quad}&
-  \lambda_{j,1} = \lambda_{j,2} = z_{j,1} = z_{j,2},
-  \qquad j = 1,\ldots,n_c.
-\end{IEEEeqnarray*}
-where $\tilde{f}_\mathrm{phys}$ is the physical objective in local variables, $z_{j,s}$ are auxiliary variables, and $\delta_{K_j}$ is the indicator of $K_j := \{\lambda \in \real^3 \mid g_{\mathrm{cone},j}(q,\lambda) \leq 0\}$.
-ADMM solves the body subproblems independently.
-An equivalent four-dimensional second-order cone (SOC) lifting enables closed-form cone projections for the friction updates, while consensus updates reduce to averaging.
-
-The pose optimization module is implemented using CUDA to leverage GPU parallelization for efficient computation of the gradients and the ADMM updates.
 
 % Queue the toy example here for the right column on page 4.
 \input{figures/pose_optimization_toy.tex}

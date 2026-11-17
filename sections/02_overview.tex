@@ -29,9 +29,10 @@ where $i_{k+1}\in\inventory_k$. The transition inserts the proposed pose into th
 The reward $\reward(\state_k,\action_k)$ scores target-contained volume and physical quality; feasibility checks separately reject invalid transitions (Sec.~\ref{sec:sequence_planning}).
 The MDP is $\mdp=(\mathcal{S},\mathcal{A},\transition,\reward,\gamma)$, with discount factor $\gamma$.
 
-\subsection{Monte Carlo Tree Search}
+\subsection{MCTS-Based Stacking Framework}
 
-Monte Carlo Tree Search (MCTS) incrementally constructs a search tree $\tree=(\nodes,\edges)$ over the MDP.
+Our framework uses MCTS to search placement sequences, integrating pose sampling, bilevel refinement, and simulation within each expansion (Fig.~\ref{fig:overview}).
+The search tree $\tree=(\nodes,\edges)$ is defined over the MDP.
 Each node $\node\in\nodes$ represents a state $\state(\node)$, and each edge $(\node,a)\in\edges$ represents an action and its transition to a child node.
 Let $\visit(\node)$ denote the number of completed evaluations and $Q(\node)$ the empirical mean of discounted returns backpropagated to that node.
 
@@ -48,4 +49,5 @@ The resulting flow is
 \xrightarrow{\ \simul\ }
 \state_{k+1},\ \reward(\state_k,\action_k)
 \end{equation*}
-and the details are introduced in the later sections.
+Independent candidates follow this flow in parallel on the GPU, with bodywise ADMM also parallelizing contact force optimization within each structure (Sec.~\ref{sec:pose_optimization}).
+After search, we execute the selected placement and replan from the observed scene (Sec.~\ref{sec:sequence_planning}).

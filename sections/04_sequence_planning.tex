@@ -13,19 +13,23 @@ For a child $\node$ reached by action $a$ from parent $\node_p$, we define the a
  P(\node_p,a)=\operatorname{softmax}_{a}\!\left(w_\object\rho_\object^{\mathrm{pre}}(a)-w_E e(a)\right),
 \end{equation*}
 where $\rho_\object^{\mathrm{pre}}(a)$ is the pre-simulation object-volume fraction inside the target; $e(a)$ and the weights follow Sec.~\ref{sec:reward}.
-Writing $N_{\node}=N(\node)$ and similarly for $Q,\hat N$, we use Predictor Upper Confidence bounds applied to Trees (PUCT)~\cite{silver2017mastering}:
+This prior favors target containment and small equilibrium residuals.
+Writing $N_{\node}=N(\node)$ and similarly for $Q,\hat N$, we adapt the Predictor Upper Confidence bounds applied to Trees (PUCT) rule used in AlphaGo Zero~\cite{silver2017mastering} for batched selection:
 \begin{equation}
     \puct(\node)=\frac{N_{\node}Q_{\node}}{N_{\node}+\hat N_{\node}}
     +cP(\node_p,a)\frac{\sqrt{N_{\node_p}+\hat N_{\node_p}}}
          {1+N_{\node}+\hat N_{\node}},
     \label{eq:puct}
 \end{equation}
-where $c>0$ controls exploration, $\tmpvisit$ counts temporary reservations, and the first term is zero when its denominator is zero.
+where $c>0$ controls exploration toward less-visited alternatives, $\tmpvisit$ counts temporary reservations, and the first term is zero when its denominator is zero.
 We use progressive widening~\cite{couetoux2011continuousuct} during tree search to expand the set of candidate placements as visits accumulate.
-Reservations prevent duplicate batch evaluations without increasing the widening allowance.
+Temporary reservations $\hat N$ account for pending evaluations in selection scores during batch construction.
+They are cleared after backpropagation and do not increase the completed-visit count used for progressive widening.
 
 \noindent \textbf{Parallel Expansion and Evaluation.}
 Each colored row in Fig.~\ref{fig:overview} evaluates one request through $\initpose\to\poseopt\to\simul$; rows run in parallel using the pose optimizer of Sec.~\ref{sec:pose_optimization}.
+Sampling chooses objects and initial poses; optimization refines geometry and static equilibrium; simulation determines the settled successor state and reward.
+MCTS compares the resulting placement sequences, coupling continuous refinement to future placement opportunities.
 
 \noindent \textbf{Leaf Value Estimation and Backpropagation.}
 For nonterminal, feasible leaves, we replace rollouts with $\hat V(\node)=\hat r\sum_{j=0}^{\depth_{\node}-1}\gamma^j$, where $\depth_{\node}$ counts future placements in the estimate, capped by remaining search depth and inventory.
@@ -67,6 +71,7 @@ Geometric filters constrain planar displacement and placement height after refin
 % Equilibrium rejection before simulation is defined in Reward Design.
 
 \subsection{Simulation Module}\label{sec:simulation}
+Dynamic validation tests settling and disturbance response beyond static force balance.
 At every search depth, $\simul$ first settles the candidate for a fixed time duration with existing objects fixed, then resets velocities and simulates the entire structure.
 Settling requires a minimum time duration and sustained low kinetic energy; excessive accumulated motion or timeout reject the placement.
 

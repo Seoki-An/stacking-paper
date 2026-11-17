@@ -21,3 +21,5 @@
 
 # Local editable figure sources (keep on disk, exclude from Git)
 .source/
+
+tmp/*
