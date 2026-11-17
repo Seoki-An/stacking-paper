@@ -6,14 +6,14 @@ Candidate placements are sampled, refined, and evaluated using the modules intro
 \subsection{Batched Search Procedure}\label{sec:mcts}
 
 \noindent \textbf{Batched Selection.}
-We follow evaluated, feasible children using PUCT to select nodes for batched expansion.
+We select evaluated, feasible children for batched expansion.
 The colored paths in Fig.~\ref{fig:overview} terminate at the resulting expansion requests $b_j$.
 For a child $\node$ reached by action $a$ from parent $\node_p$, we define the action prior over selectable child actions as
 \begin{equation*}
  P(\node_p,a)=\operatorname{softmax}_{a}\!\left(w_\object\rho_\object^{\mathrm{pre}}(a)-w_E e(a)\right),
 \end{equation*}
 where $\rho_\object^{\mathrm{pre}}(a)$ is the pre-simulation object-volume fraction inside the target; $e(a)$ and the weights follow Sec.~\ref{sec:reward}.
-Writing $N_{\node}=N(\node)$ and similarly for $Q,\hat N$, we select evaluated children using PUCT~\cite{silver2017mastering}:
+Writing $N_{\node}=N(\node)$ and similarly for $Q,\hat N$, we use Predictor Upper Confidence bounds applied to Trees (PUCT)~\cite{silver2017mastering}:
 \begin{equation}
     \puct(\node)=\frac{N_{\node}Q_{\node}}{N_{\node}+\hat N_{\node}}
     +cP(\node_p,a)\frac{\sqrt{N_{\node_p}+\hat N_{\node_p}}}
