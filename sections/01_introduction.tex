@@ -42,6 +42,6 @@ Both pose optimization and subADMM simulation~\cite{ji2025gpu} are GPU-accelerat
 Our main contributions are as follows:
 \begin{itemize}[\setlength{\topsep}{2pt}\setlength{\parskip}{0pt}]
 \item A differentiable bilevel pose optimization formulation guided by the target shape $T$ and force and torque equilibrium across the entire structure.
-\item An MCTS framework for stacking with hierarchical node expansion and domain-specific rewards guiding lookahead toward the target coverage and structural stability.
+\item A stacking-specific MCTS framework that integrates geometry-guided candidate sampling, bilevel pose refinement, and simulation-based evaluation for object selection and placement-sequence planning, with rewards accounting for target volume filling and physical feasibility.
 \item GPU-accelerated MCTS evaluation through bodywise ADMM for parallel contact force optimization within structures and batched pose optimization and simulation across candidates.
 \end{itemize}
