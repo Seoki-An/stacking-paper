@@ -11,7 +11,7 @@ c_\text{phys}(q_1,\cdots,q_n)=0,\quad \object_i(q_i)\subseteq\target\ \ \forall 
 \end{gather}
 where $\object_i(q_i)\subset\real^3$ is the region occupied by object $i$ at pose $q_i\in\SE(3)$, $\vol(\cdot)$ denotes volume, and $c_\text{phys}=0$ represents stability and non-interpenetration constraints.
 Constructing such a structure also requires selecting objects, determining which objects support one another, and deciding in what order to place them.
-Each placement changes the remaining inventory, available space, and support for subsequent objects, so a currently stable placement may limit the final target coverage.
+Each placement changes the remaining inventory, available space, and support for subsequent objects, so a currently stable placement may limit the final target volume filling.
 These interdependent discrete choices make sequence planning combinatorial, while evaluating candidate placements requires iterative numerical evaluation of contact interactions~\cite{furrer2017stacking}, making the search computationally expensive.
 
 \input{figures/preliminary_result.tex}
@@ -24,21 +24,21 @@ These methods assess stability but do not use equilibrium across the entire stru
 Menezes et al.~\cite{menezes2021rocks} learn placement values reflecting future rewards, with fixed object sequences and orientations.
 
 We propose a GPU-accelerated stacking framework that integrates structure-wide equilibrium-guided pose refinement with Monte Carlo Tree Search (MCTS) over placement sequences (Fig.~\ref{fig:overview}).
-The framework couples continuous placement refinement with discrete lookahead, so candidate poses are optimized before their effects on subsequent placements are evaluated.
+The framework couples continuous pose refinement with discrete lookahead to evaluate how optimized placements affect subsequent placements.
 
 For pose refinement, we formulate a differentiable bilevel problem that accounts for how candidate placement affects force and torque equilibrium throughout the structure.
 The lower level optimizes shared contact forces across all stones; the upper level refines the candidate pose using gradients of the optimized physical objective and geometric objectives.
 Differentiable support functions (DSFs)~\cite{lee2023uncertain,an2024riemannianmtd} provide pose-dependent contact geometry for these gradients.
 This formulation builds on contact-force-based manipulation and grasp optimization~\cite{lee2025contactfactorgraph,zurbrugg2025graspqp,chen2025bodex}, extending the optimization to the coupled equilibrium of the growing stack.
-In particular, BODex~\cite{chen2025bodex} uses finite differences for coarse contact derivatives and fixed link-frame contact coordinates during fine-stage differentiation; our pose updates differentiate DSF contact geometry.
+In particular, BODex~\cite{chen2025bodex} uses finite differences for coarse contact derivatives and fixed link-frame contact coordinates during fine-stage differentiation while we differentiate DSF contact geometry for pose updates.
 
-For sequence planning, we develop a hierarchical MCTS expansion that samples candidate placements, refines their poses, and validates the resulting structures through simulation.
-Domain-specific rewards guide lookahead toward target coverage and structural stability, allowing the search to account for how each placement changes future options.
+For sequence planning, we develop a multi-stage MCTS expansion that samples candidate placements, refines their poses, and validates the resulting structures through simulation.
+Domain-specific rewards guide lookahead toward target volume filling and structural stability, accounting for effects on subsequent placements.
 PMBS~\cite{huang2022pmbs} demonstrates batched simulation within MCTS for clutter retrieval; our expansion additionally incorporates structure-wide equilibrium-guided pose optimization before simulation.
 
-To reduce the cost of these repeated evaluations, we parallelize computation both within each structure and across candidates.
-We introduce bodywise contact force copies and an alternating direction method of multipliers (ADMM) to decompose the coupled force optimization into parallel bodywise updates, with consensus enforcing contact-force consistency.
-Both pose optimization and subADMM simulation~\cite{ji2025gpu} are GPU-accelerated and batched across independent candidates, enabling parallel evaluation of alternative placements throughout the search.
+To reduce repeated evaluation costs, we parallelize computation within each structure and across candidates.
+We introduce bodywise contact force copies and use the alternating direction method of multipliers (ADMM) to decompose the coupled force optimization into parallel bodywise updates, with consensus enforcing contact-force consistency.
+Both pose optimization and subADMM simulation~\cite{ji2025gpu} are GPU-accelerated, enabling batched evaluation of independent candidate placements throughout the search.
 Our main contributions are as follows:
 \begin{itemize}[\setlength{\topsep}{2pt}\setlength{\parskip}{0pt}]
 \item A differentiable bilevel pose optimization formulation guided by the target shape $T$ and force and torque equilibrium across the entire structure.

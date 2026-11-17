@@ -1,4 +1,4 @@
-\section{Bilevel Pose Optimization} \label{sec:pose_optimization}
+\section{Differentiable Bilevel Pose Optimization} \label{sec:pose_optimization}
 
 Given an initial pose $\hat q_{k+1}$, we refine the candidate placement through bilevel optimization of its pose and contact forces across the structure.
 
@@ -39,7 +39,7 @@ With $\dsf_{\object(q)}(u)=\max_j\dsf_{\convex_{i_{k+1},j}(q)}(u)$, we define
 For convex $\target_j$, the inner minimum is nonnegative iff $\object(q)\subseteq\target_j$.
 The maximum over $j$ thus tests whether any target component contains the entire object.
 We use $f_\mathrm{in}$ as a soft penalty for this sufficient, conservative condition for $\object(q)\subseteq\target$.
-Noting that the term is differentiable almost everywhere in $q$, we compute pose derivatives at regular inner solutions by implicit differentiation.
+Since $f_\mathrm{in}$ is differentiable almost everywhere in $q$, we compute the pose derivatives of $f_\mathrm{in}$ at regular inner solutions by implicit differentiation.
 
 \input{figures/pose_optimization.tex}
 
@@ -70,7 +70,7 @@ $g_{\mathrm{cone},j}(q,\lambda_j)\leq 0$, where
 \end{equation}
 Here, $\epsilon > 0$ is a smoothing parameter, $\mu_j$ is the friction coefficient, and $J_{c,j}^t$ and $J_{c,j}^n$ are the tangential and normal components of the Jacobian of the contact constraint.
 
-\subsection{Lower-Level Problem Optimization with ADMM}
+\subsection{Lower-Level Optimization with ADMM}
 
 For fixed $q$, the lower-level problem is convex in $\lambda$.
 To apply bodywise ADMM~\cite{boyd2011distributed}, we introduce two local copies $\lambda_{j,1}$ and $\lambda_{j,2}$ per contact, one for each contacting body, including the ground.
@@ -91,7 +91,7 @@ where $z_{j,s}$ are auxiliary variables and $\delta_{K_j}$ is the indicator of $
 The factors $1/2$ avoid double-counting contact penalties, recovering~\eqref{eq:force_objective} at consensus.
 Each equilibrium residual uses only local copies, enabling parallel quadratic body updates coupled through contactwise consensus and dual updates.
 In the lifted formulation of~\eqref{eq:friction_cone}, friction updates reduce to simple closed-form projections onto a four-dimensional second-order cone (SOC). The lifting includes the fixed smoothing component $\sqrt{\epsilon}$.
-CUDA batches these body and contact updates across candidate structures, followed by gradient evaluation for upper-level pose refinement.
+Using CUDA, we batch these body and contact updates across candidate structures, then evaluate gradients for upper-level pose refinement.
 
 \subsection{Upper-Level Optimization on SE(3)}
 
@@ -116,6 +116,7 @@ It progressively reduces $w_\mathrm{reg}$ to limit regularization-induced equili
 %   \caption{Toy example of comparing the overall structural stability of the scene and the local structural stability of the candidate object.}
 %   \label{fig:toy_example}
 % \end{figure}
+
 
 % Queue the toy example here for the right column on page 4.
 \input{figures/pose_optimization_toy.tex}

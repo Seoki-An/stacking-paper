@@ -26,7 +26,7 @@ The state, action, and deterministic transition function are
     \state_{k+1}=\transition(\state_k,\action_k),
 \end{equation*}
 where $i_{k+1}\in\inventory_k$. The transition inserts the proposed pose into the scene, simulates the resulting structure, and returns the settled scene with $\inventory_{k+1}=\inventory_k\setminus\{i_{k+1}\}$. 
-The reward $\reward(\state_k,\action_k)$ scores target-contained volume and physical quality; feasibility checks separately reject invalid transitions (Sec.~\ref{sec:sequence_planning}).
+The reward $\reward(\state_k,\action_k)$ scores volume filling, equilibrium residuals, and disturbance response; feasibility checks separately reject invalid transitions (Sec.~\ref{sec:sequence_planning}).
 The MDP is $\mdp=(\mathcal{S},\mathcal{A},\transition,\reward,\gamma)$, with discount factor $\gamma$.
 
 \subsection{MCTS-Based Stacking Framework}
@@ -36,9 +36,9 @@ The search tree $\tree=(\nodes,\edges)$ is defined over the MDP.
 Each node $\node\in\nodes$ represents a state $\state(\node)$, and each edge $(\node,a)\in\edges$ represents an action and its transition to a child node.
 Let $\visit(\node)$ denote the number of completed evaluations and $Q(\node)$ the empirical mean of discounted returns backpropagated to that node.
 
-Each iteration selects a path by balancing value and exploration, expands and evaluates an action, and backpropagates its discounted return to update $Q$ and $\visit$.
+Each iteration balances value and exploration to select a path, expands and evaluates an action, then backpropagates its discounted return to update $Q$ and $\visit$.
 
-In our planner (Fig.~\ref{fig:overview}), expansion uses three modules: $\initpose$ proposes an object and initial pose $\hat{\action}_k=(i_{k+1},\hat q_{k+1})$, $\poseopt$ refines the pose, and $\simul$ evaluates the resulting structure to determine feasibility, the settled successor, and reward.
+Expansion uses three modules (Fig.~\ref{fig:overview}): $\initpose$ proposes an object and initial pose $\hat{\action}_k=(i_{k+1},\hat q_{k+1})$, $\poseopt$ refines the pose, and $\simul$ determines feasibility, the settled successor state, and reward.
 The resulting flow is
 \begin{equation*}
 \state_k
