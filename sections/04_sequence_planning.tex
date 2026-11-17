@@ -37,18 +37,21 @@ The fixed hyperparameter $\hat r$ sets a heuristic per-step reward for unexplore
 Failed or terminal nodes have $\hat V=0$.
 We propagate $r_{\node}+\gamma\hat V(\node)$, with incoming reward $r_{\node}$, toward the root, adding discounted ancestor rewards, updating $Q,N$, and clearing reservations.
 
-\noindent \textbf{Action Selection and Tree Reuse.}
-We select the feasible root action maximizing
+\noindent \textbf{Action Selection and Replanning.}
+Failed continuations can lower mean returns even when the search has found high-return feasible paths.
+We therefore select the feasible root action maximizing
 \begin{equation*}
   J(a)=(1-\beta)Q(\node_a)+\beta G(a),\qquad \beta\in[0,1].
 \end{equation*}
 Here $\node_a$ is the root child reached by $a$.
-$G(a)$ is the maximum discounted sum of observed rewards $r_{\node}$ over the deepest evaluated feasible paths starting with $a$ within the search horizon, excluding the heuristic leaf estimate $\hat V$.
-Without a feasible continuation, $G(a)=r_{\node_a}$.
-This term offsets exploration failures that depress $Q$ despite promising paths. If no root action is feasible, no placement is returned.
+Among evaluated feasible paths starting at $\node_a$ within the search horizon, we consider only those reaching the maximum depth under action $a$ and define
+\begin{equation*}
+ G(a)=\max_{(v_1,\ldots,v_m)}\sum_{t=1}^{m}\gamma^{t-1}r_{v_t},
+\end{equation*}
+where the maximum is over these paths, with $v_1=\node_a$.
+Only observed rewards are included, excluding $\hat V$, and when there is no feasible continuation, we set $m=1$ and $G(a)=r_{\node_a}$.
 
 We execute the selected placement and replan from the observed successor state, which becomes the new root.
-We retain descendants and statistics only if the observed state and planning context match the subtree, discarding it otherwise.
 
 \input{figures/mcts_example.tex}
 
@@ -64,7 +67,7 @@ with positive weights. The terms measure predicted bottom support fraction, unfi
 Following Menezes et al.~\cite{menezes2021rocks}, floor and boundary preferences encourage filling empty regions and building inward from the boundary.
 
 We combine top-scoring proposals with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$.
-We initialize height so the candidate's lowest point lies above the base plane and the bounding-box tops of objects with overlapping padded XY bounds, with added clearance (Fig.~\ref{fig:score_map}(c)).
+We initialize height so the lowest point of the candidate lies above the base plane and the bounding-box tops of objects with overlapping padded XY bounds, with added clearance (Fig.~\ref{fig:score_map}(c)).
 Geometric filters constrain planar displacement and placement height after refinement and settling.
 % Root proposals also use XY/yaw mutations. Displacement is measured from the
 % initial pose, and height filtering uses the current construction level.
@@ -76,7 +79,7 @@ At every search depth, $\simul$ first settles the candidate for a fixed time dur
 Settling requires a minimum time duration and sustained low kinetic energy; excessive accumulated motion or timeout reject the placement.
 
 The settled scene defines $\state'=\transition(\state,\action)$.
-From rest in $\state'$, independent disturbance trials apply a force of magnitude $\alpha m_{i_{k+1}}g$ at the candidate's center of mass for $\Delta t_f$, in $n_d$ evenly spaced horizontal directions ($\alpha>0$, gravitational acceleration $g$).
+From rest in $\state'$, independent disturbance trials apply a force of magnitude $\alpha m_{i_{k+1}}g$ at the center of mass of the candidate for $\Delta t_f$, in $n_d$ evenly spaced horizontal directions ($\alpha>0$, gravitational acceleration $g$).
 With all objects dynamic, each trial must settle again without exceeding prescribed displacement limits relative to $\state'$; trials do not alter $\state'$.
 GPU-accelerated subADMM~\cite{ji2025gpu} evaluates independent candidates in parallel.
 
@@ -114,5 +117,5 @@ Disturbance sensitivity measures motion from settled poses $q_l'$ during force t
 \begin{equation*}
  D=\min\!\left\{D_{\max},\max_{j,l,t}d_{\SE(3)}\bigl(q_l^{(j)}(t),q_l'\bigr)\right\},
 \end{equation*}
-Here $q_l^{(j)}(t)$ is object $l$'s pose in trial $j$ at time $t$. The maximum spans all trials, objects, and simulation times including recovery.
+Here $q_l^{(j)}(t)$ is the pose of object $l$ in trial $j$ at time $t$. The maximum spans all trials, objects, and simulation times including recovery.
 The distance $d_{\SE(3)}$ sums translation distance and angular distance weighted by $\lambda_\theta>0$.

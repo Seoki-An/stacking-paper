@@ -26,7 +26,7 @@ Menezes et al.~\cite{menezes2021rocks} learn placement values reflecting future 
 We propose a GPU-accelerated stacking framework that integrates structure-wide equilibrium-guided pose refinement with Monte Carlo Tree Search (MCTS) over placement sequences (Fig.~\ref{fig:overview}).
 The framework couples continuous placement refinement with discrete lookahead, so candidate poses are optimized before their effects on subsequent placements are evaluated.
 
-For pose refinement, we formulate a differentiable bilevel problem that accounts for the candidate's effect on force and torque equilibrium throughout the structure.
+For pose refinement, we formulate a differentiable bilevel problem that accounts for how candidate placement affects force and torque equilibrium throughout the structure.
 The lower level optimizes shared contact forces across all stones; the upper level refines the candidate pose using gradients of the optimized physical objective and geometric objectives.
 Differentiable support functions (DSFs)~\cite{lee2023uncertain,an2024riemannianmtd} provide pose-dependent contact geometry for these gradients.
 This formulation builds on contact-force-based manipulation and grasp optimization~\cite{lee2025contactfactorgraph,zurbrugg2025graspqp,chen2025bodex}, extending the optimization to the coupled equilibrium of the growing stack.
