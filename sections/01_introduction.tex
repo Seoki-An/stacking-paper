@@ -4,10 +4,10 @@ Stacking is a fundamental problem with applications such as bin packing, industr
 In robotic bin packing, container walls can provide lateral support~\cite{wang2022binpacking}.
 Without such support, a freestanding structure of $n$ irregular objects must approximate a prescribed target shape $\target\subset\real^3$ while maintaining force and torque equilibrium under gravity through inter-object and ground contacts.
 Satisfying these requirements is challenging because pose changes of irregular objects alter both occupied space and contact locations and normals, coupling geometric fit with force and torque equilibrium across the entire structure.
-We minimize unfilled target volume subject to containment and physical feasibility:
+We minimize unfilled target volume subject to physical feasibility:
 \begin{gather}
 \min_{q_1,\cdots,q_n\in\SE(3)} \vol\left(\target\backslash\bigcup_{i=1}^{n}\object_i(q_i)\right)\quad\text{s.t.} \label{eq:problem_definition}\\
-c_\text{phys}(q_1,\cdots,q_n)=0,\quad \object_i(q_i)\subseteq\target\ \ \forall i. \nonumber
+c_\text{phys}(q_1,\cdots,q_n)=0. \nonumber
 \end{gather}
 where $\object_i(q_i)\subset\real^3$ is the region occupied by object $i$ at pose $q_i\in\SE(3)$, $\vol(\cdot)$ denotes volume, and $c_\text{phys}=0$ represents stability and non-interpenetration constraints.
 Constructing such a structure also requires selecting objects, determining which objects support one another, and deciding in what order to place them.
@@ -24,7 +24,7 @@ These methods assess stability but do not use equilibrium across the entire stru
 Menezes et al.~\cite{menezes2021rocks} learn placement values reflecting future rewards, with fixed object sequences and orientations.
 
 We propose a GPU-accelerated stacking framework that integrates structure-wide equilibrium-guided pose refinement with Monte Carlo Tree Search (MCTS) over placement sequences (Fig.~\ref{fig:overview}).
-The framework couples continuous pose refinement with discrete lookahead to evaluate how optimized placements affect subsequent placements.
+The framework couples continuous pose refinement with tree search over object choices and placement sequences to evaluate how optimized placements affect subsequent placements.
 
 For pose refinement, we formulate a differentiable bilevel problem that accounts for how candidate placement affects force and torque equilibrium throughout the structure.
 The lower level optimizes shared contact forces across all stones; the upper level refines the candidate pose using gradients of the optimized physical objective and geometric objectives.
@@ -33,7 +33,7 @@ This formulation builds on contact-force-based manipulation and grasp optimizati
 In particular, BODex~\cite{chen2025bodex} uses finite differences for coarse contact derivatives and fixed link-frame contact coordinates during fine-stage differentiation while we differentiate DSF contact geometry for pose updates.
 
 For sequence planning, we develop a multi-stage MCTS expansion that samples candidate placements, refines their poses, and validates the resulting structures through simulation.
-Domain-specific rewards guide lookahead toward target volume filling and structural stability, accounting for effects on subsequent placements.
+Domain-specific rewards guide tree search toward placement sequences that improve target volume filling while maintaining structural stability.
 PMBS~\cite{huang2022pmbs} demonstrates batched simulation within MCTS for clutter retrieval; our expansion additionally incorporates structure-wide equilibrium-guided pose optimization before simulation.
 
 To reduce repeated evaluation costs, we parallelize computation within each structure and across candidates.

@@ -25,7 +25,7 @@ The state, action, and deterministic transition function are
     \action_k=(i_{k+1},q_{k+1}),\quad
     \state_{k+1}=\transition(\state_k,\action_k),
 \end{equation*}
-where $i_{k+1}\in\inventory_k$. The transition inserts the proposed pose into the scene, simulates the resulting structure, and returns the settled scene with $\inventory_{k+1}=\inventory_k\setminus\{i_{k+1}\}$. 
+where $q_{k+1}$ is the proposed pose of the selected object $i_{k+1}\in\inventory_k$. The transition inserts the proposed pose into the scene, simulates the resulting structure, and returns the settled scene with $\inventory_{k+1}=\inventory_k\setminus\{i_{k+1}\}$.
 The reward $\reward(\state_k,\action_k)$ scores volume filling, equilibrium residuals, and disturbance response; feasibility checks separately reject invalid transitions (Sec.~\ref{sec:sequence_planning}).
 The MDP is $\mdp=(\mathcal{S},\mathcal{A},\transition,\reward,\gamma)$, with discount factor $\gamma$.
 

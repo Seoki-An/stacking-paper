@@ -49,32 +49,32 @@ For each action $a$, we consider the deepest evaluated feasible paths from $\nod
  G(a)=\max_{(v_1,\ldots,v_m)}\sum_{t=1}^{m}\gamma^{t-1}r_{v_t},
 \end{equation*}
 where the maximum is over these paths, with $v_1=\node_a$.
-Only observed rewards are included, excluding $\hat V$, and when there is no feasible continuation, we set $m=1$ and $G(a)=r_{\node_a}$.
+Only observed rewards are included in $G(a)$, excluding $\hat V$. If no feasible continuation exists, $m=1$ and $G(a)=r_{\node_a}$.
 
 We execute the selected placement, then replan with the observed successor state as the new root.
 
 \input{figures/mcts_example.tex}
 
 \subsection{Initial Pose Sampling}\label{sec:initial_pose_sampling}
-The sampler $\initpose$ allocates more attempts to larger objects, uses finite orientation sets, and seeds empty scenes near feasible target corners.
+The sampler $\initpose$ samples larger objects more often, uses finite orientation sets, and proposes initial placements near feasible target corners in empty scenes.
 For object $i$, orientation $R$, and feasible planar location $\planar$, the score (Fig.~\ref{fig:score_map}) is
 \begin{equation*}
   \score(\planar\mid i,R)
   =w_\text{s}\score_\text{s}+w_\text{f}\score_\text{f}
    +w_\text{b}\score_\text{b}-w_\text{h}\score_\text{h}-w_\text{d}\score_\text{d},
 \end{equation*}
-with positive weights. The terms measure predicted bottom support fraction, unfilled layer area beneath the footprint, proximity to the feasible placement boundary, normalized mean contact height, and a bounded gap penalty between consecutive object footprints (zero for the first placement).
-Following Menezes et al.~\cite{menezes2021rocks}, floor and boundary preferences encourage filling empty regions and building inward from the boundary.
+All weights are positive. The terms are: $\score_\mathrm{s}$, predicted bottom support fraction; $\score_\mathrm{f}$, unfilled area in the current construction layer beneath the footprint; $\score_\mathrm{b}$, proximity to the feasible placement boundary; $\score_\mathrm{h}$, mean height over predicted contact regions, min--max normalized across valid proposals for each object; and $\score_\mathrm{d}$, a bounded gap penalty between consecutive footprints (zero for the first placement).
+The area and boundary terms favor filling empty regions and building inward~\cite{menezes2021rocks}.
 
 We combine top-scoring proposals with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$.
-We set the initial height so that the lowest point of the candidate clears the base plane and the tops of objects with overlapping padded XY bounding boxes (Fig.~\ref{fig:score_map}(c)).
+The initial height keeps the lowest candidate point above the base plane and all objects with overlapping padded XY bounding boxes (Fig.~\ref{fig:score_map}(c)).
 % Root proposals also use XY/yaw mutations. Displacement is measured from the
 % initial pose, and height filtering uses the current construction level.
 % Equilibrium rejection before simulation is defined in Reward Design.
 
 \subsection{Simulation Module}\label{sec:simulation}
 Dynamic validation tests settling and disturbance response beyond static force balance.
-At every search depth, $\simul$ first settles the candidate for a fixed time duration with existing objects fixed, then resets velocities and simulates the entire structure.
+At every search depth, $\simul$ first simulates the candidate for a fixed time duration while holding existing objects fixed, then resets velocities and simulates the entire structure.
 Settling requires a minimum time duration and sustained low kinetic energy; excessive accumulated motion or timeout causes rejection.
 
 The settled scene defines $\state'=\transition(\state,\action)$.
@@ -86,7 +86,6 @@ GPU-accelerated subADMM~\cite{ji2025gpu} evaluates independent candidates in par
 \input{figures/initial_pose_sampling.tex}
 
 \subsection{Reward Design}\label{sec:reward}
-The reward evaluates candidate placements within MCTS.
 For the new object $i=i_{k+1}$ at its settled successor pose $q_i'$ (Sec.~\ref{sec:simulation}), define
 \begin{equation*}
  \rho_\target=\frac{\vol\bigl(\object_i(q_i')\cap\target\bigr)}{\vol(\target)},
@@ -116,4 +115,4 @@ Disturbance sensitivity measures motion from settled poses $q_l'$ during force t
 \begin{equation*}
  D=\min\!\left\{D_{\max},\max_{j,l,t}d_{\SE(3)}\bigl(q_l^{(j)}(t),q_l'\bigr)\right\}.
 \end{equation*}
-Here $q_l^{(j)}(t)$ denotes the pose of object $l$ at time $t$ in trial $j$. The maximum includes all trials, objects, and times through recovery; $d_{\SE(3)}$ adds translation distance to angular distance scaled by $\lambda_\theta>0$.
+Here $q_l^{(j)}(t)$ is the pose of object $l$ at time $t$ in trial $j$, including recovery; $d_{\SE(3)}$ sums translation distance and angular distance scaled by $\lambda_\theta>0$.
