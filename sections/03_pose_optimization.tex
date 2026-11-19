@@ -5,26 +5,20 @@ Figure~\ref{fig:pose_optimization} illustrates how the lower-level contact force
 
 \subsection{Single Object Pose Optimization Problem}
 
-Given $\state_k$, we initialize $q$ at $\hat q_{k+1}$ and solve the bilevel
-problem
+Given $\state_k$, we solve
 \begin{IEEEeqnarray}{rCl}
   \min_{q} &{\quad}& \left[f_\mathrm{geo}(q) + \min_{\lambda} f_\mathrm{phys}(q, \lambda)\right] \label{eq:pose_optimization} \\
   \mathrm{s.t. } &{\quad}& g_{\mathrm{cone},j}(q,\lambda_j) \leq 0, \quad j=1,\cdots,n_c \nonumber
 \end{IEEEeqnarray}
 where $q \in \SE(3)$ is the candidate pose and $\lambda = (\lambda_1,\cdots,\lambda_{n_c}) \in \real^{3n_c}$ collects all contact forces in the resulting structure, including inter-object and ground contacts.
-We adopt the bilevel structure of prior contact-aware optimization methods~\cite{lee2025contactfactorgraph,chen2025bodex}.
 
 % The geometric objective $f_\mathrm{geo}(q)$ measures geometric quality, including target shape approximation and collision avoidance; its detailed formulation is provided in the appendix.
-The geometric objective $f_\mathrm{geo}$ is designed as follows:
+Writing $\object=\object_{i_{k+1}}$ for the candidate stone, we define
 \begin{equation*}
-  \begin{split}
-    f_\mathrm{geo}(q)
-    ={} & w_\mathrm{h} f_\mathrm{h}(q) + w_\mathrm{in}f_\mathrm{in}(q \mid \target, \object_{i_{k+1}}) \\
-        & + w_\mathrm{pen}f_\mathrm{pen}(q \mid \scene_k, \object_{i_{k+1}})
-  \end{split}
+  f_\mathrm{geo}(q) = w_\mathrm{h} f_\mathrm{h}(q) + w_\mathrm{in} f_\mathrm{in}(q \mid \target, \object) + w_\mathrm{pen} f_\mathrm{pen}(q \mid \scene_k, \object)
 \end{equation*}
 with positive weights. For $q=(R,t)$, $f_\mathrm{h}(q)=t_z$ is the world-frame height of the candidate pose origin.
-Writing $\object=\object_{i_{k+1}}$, we penalize interpenetration and clearance-margin violations between the candidate and existing objects or the fixed ground as follows:
+We penalize clearance-margin violations, including interpenetration, between the candidate and each existing object or the ground:
 \begin{equation*}
   f_\mathrm{pen}(q)=\sum_{j\in\placed_k\cup\{i_0\}}
   \bigl[\epsilon_\mathrm{margin}-\sd(\object(q),\object_j(q_j))\bigr]_+^2,
@@ -103,8 +97,7 @@ The envelope theorem~\cite{carter2001matheconomics} gives
 \end{equation*}
 where $\nu^*_j$ is the optimal dual variable for the $j$-th friction cone constraint.
 Using this gradient, we optimize the placement pose $q$ on $\SE(3)$ using a Riemannian trust-region method~\cite{absil2007trust} with a BFGS Hessian approximation~\cite{huang2018riemannianbfgs}.
-A homotopy schedule adjusts the geometric and physical weights between stages, holding them fixed within each stage and initializing from the preceding pose.
-It progressively reduces $w_\mathrm{reg}$ to limit regularization-induced equilibrium residuals. Candidate evaluation uses the final pose and forces.
+We warm-start each homotopy stage from the preceding pose, hold the objective weights fixed within each stage, and progressively reduce $w_\mathrm{reg}$ to limit regularization-induced equilibrium residuals.
 
 % \begin{figure}[t]
 %   \centering

@@ -24,26 +24,23 @@ These methods assess stability but do not use equilibrium across the entire stru
 Menezes et al.~\cite{menezes2021rocks} learn placement values reflecting future rewards, with fixed object sequences and orientations.
 
 We propose a GPU-accelerated framework that plans placement sequences for irregular stones using Monte Carlo Tree Search (MCTS).
-Within each expansion, bilevel pose optimization refines the candidate placement and GPU-accelerated subADMM simulation~\cite{ji2025gpu} predicts the resulting configuration of the stack.
+Within each expansion, bilevel pose optimization refines the candidate placement and GPU-accelerated subADMM simulation~\cite{ji2025gpu} evaluates the stability of the resulting stack.
 Figure~\ref{fig:preliminary_result} shows preliminary results for several target shapes in simulation and a stone stack built outdoors. For the outdoor experiment, we ran the planner on the CPU because CUDA was unavailable on the platform.
 Figure~\ref{fig:overview} illustrates how MCTS uses the simulated configurations to compare subsequent placements.
 
-Our bilevel pose optimization accounts for how a candidate placement affects force and torque equilibrium throughout the structure.
-The lower level optimizes shared contact forces across all stones; the upper level refines the candidate pose using gradients of the optimized physical objective and geometric objectives.
-Differentiable support functions (DSFs)~\cite{lee2023uncertain,an2024riemannianmtd} provide pose-dependent contact geometry for these gradients.
+The lower level of the pose optimization solves for shared contact forces across the stack. At the upper level, differentiable support functions (DSFs)~\cite{lee2023uncertain,an2024riemannianmtd} provide the contact geometry derivatives needed to refine the candidate pose for geometric fit and structure-wide equilibrium.
 This formulation builds on contact-force-based manipulation and grasp optimization~\cite{lee2025contactfactorgraph,zurbrugg2025graspqp,chen2025bodex}, extending the optimization to the coupled equilibrium of the growing stack.
 In particular, BODex~\cite{chen2025bodex} uses finite differences for coarse contact derivatives and fixed link-frame contact coordinates during fine-stage differentiation while we differentiate DSF contact geometry for pose updates.
 
 Liu and Napp~\cite{liu2023stability} use simulated shake tests to select the candidate pose for which the partially built wall withstands shaking the longest.
-In our framework, bilevel pose optimization first refines each candidate using force and torque balance across the stack. For candidates that pass the equilibrium check, MCTS simulates settling and explores subsequent placements from the resulting stack configuration.
+In our framework, MCTS simulates settling for each refined candidate that passes the equilibrium check and explores subsequent placements from the resulting configuration.
 The choice of the current placement thus accounts for both the response of the stack to disturbances and how much of the target later placements can fill.
 
 Exploring these continuations requires repeated contact solves across branches. PMBS~\cite{huang2022pmbs} batches simulations within MCTS for clutter retrieval. In stacking, each branch also requires contact force optimization during pose refinement.
-We use the alternating direction method of multipliers (ADMM) to update local contact force copies in parallel across bodies, enforcing agreement at shared contacts.
 During simulation, GPU-accelerated subADMM~\cite{ji2025gpu} solves the nonlinear complementarity problem (NCP) for frictional contact at each time step. We batch both pose optimization and simulation across independent candidate stacks on the GPU.
 Our main contributions are as follows:
 \begin{itemize}[\setlength{\topsep}{2pt}\setlength{\parskip}{0pt}]
 \item A differentiable bilevel pose optimization formulation in which the gradient with respect to the candidate pose accounts for both geometric fit to the target shape and force and torque equilibrium across the entire structure.
 \item To account for how a stable placement can restrict later choices, we propose an MCTS-based stacking planner that compares the placement sequences each candidate stack can support after settling in simulation.
-\item Shared contact forces couple the equilibrium equations of neighboring stones. Our bodywise ADMM formulation updates local force copies in parallel and enforces consensus at each contact. We batch pose optimization and simulation across candidate stacks to evaluate multiple MCTS branches concurrently on the GPU.
+\item Shared contact forces couple the equilibrium equations of neighboring stones. A bodywise formulation of the alternating direction method of multipliers (ADMM) updates local force copies in parallel and enforces consensus at each contact. We batch pose optimization and simulation across candidate stacks to evaluate multiple MCTS branches concurrently on the GPU.
 \end{itemize}

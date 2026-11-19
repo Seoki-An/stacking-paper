@@ -18,13 +18,10 @@ Writing $N_{\node}=N(\node)$ and similarly for $Q,\hat N$, we adapt the Predicto
 \begin{equation}
     \puct(\node)=\frac{N_{\node}Q_{\node}}{N_{\node}+\hat N_{\node}}
     +cP(\node_p,a)\frac{\sqrt{N_{\node_p}+\hat N_{\node_p}}}
-         {1+N_{\node}+\hat N_{\node}},
+         {1+N_{\node}+\hat N_{\node}}.
     \label{eq:puct}
 \end{equation}
-where $c>0$ controls exploration toward less-visited alternatives, $\tmpvisit$ counts temporary reservations, and the first term is zero when its denominator is zero.
-We use progressive widening~\cite{couetoux2011continuousuct} during tree search to expand the set of candidate placements as visits accumulate.
-Temporary reservations $\hat N$ account for pending evaluations in selection scores during batch construction.
-They are cleared after backpropagation and do not increase the completed-visit count used for progressive widening.
+Here $c>0$ controls exploration, and the first term is zero when its denominator vanishes. Temporary counts $\hat N$ reserve paths during batch selection and are cleared after backpropagation. Progressive widening~\cite{couetoux2011continuousuct} uses completed visits $N$ to expand the set of candidate placements.
 
 \noindent \textbf{Parallel Expansion and Evaluation.}
 Requests (colored rows in Fig.~\ref{fig:overview}) are evaluated in parallel through $\initpose\to\poseopt\to\simul$.
@@ -38,16 +35,11 @@ We propagate $r_{\node}+\gamma\hat V(\node)$, with incoming reward $r_{\node}$, 
 
 \noindent \textbf{Action Selection and Replanning.}
 Failed continuations can lower mean returns even when the search has found high-return feasible paths.
-We therefore select the feasible root action maximizing
-\begin{equation*}
-  J(a)=(1-\beta)Q(\node_a)+\beta G(a),\qquad \beta\in[0,1].
-\end{equation*}
-Here $\node_a$ is the root child reached by $a$.
-For each action $a$, we consider the deepest evaluated feasible paths from $\node_a$ within the search horizon and define
+We select the feasible root action maximizing $J(a)=(1-\beta)Q(\node_a)+\beta G(a)$, where $\beta\in[0,1]$ and $\node_a$ is the child reached by $a$. Among the deepest evaluated feasible paths from $\node_a$ within the search horizon, the best return is
 \begin{equation*}
  G(a)=\max_{(v_1,\ldots,v_m)}\sum_{t=1}^{m}\gamma^{t-1}r_{v_t},
 \end{equation*}
-where the maximum is over these paths, with $v_1=\node_a$.
+with $v_1=\node_a$.
 The path return in $G(a)$ sums rewards from evaluated transitions and excludes the heuristic leaf estimate $\hat V$. If no feasible continuation exists, $m=1$ and $G(a)=r_{\node_a}$.
 
 We execute the selected placement, then replan with the observed successor state as the new root.
@@ -56,18 +48,15 @@ Figure~\ref{fig:mcts_example} illustrates the effect of tree search in one wall 
 \input{figures/mcts_example.tex}
 
 \subsection{Initial Pose Sampling}\label{sec:initial_pose_sampling}
-The sampler $\initpose$ samples larger objects more often, uses finite orientation sets, and proposes initial placements near feasible target corners in empty scenes.
+The sampler $\initpose$ favors larger objects, considers a finite set of orientations, and starts near feasible target corners in an empty scene.
 For object $i$, orientation $R$, and feasible planar location $\planar$, the score (Fig.~\ref{fig:score_map}) is
 \begin{equation*}
   \score(\planar\mid i,R)
   =w_\text{s}\score_\text{s}+w_\text{f}\score_\text{f}
    +w_\text{b}\score_\text{b}-w_\text{h}\score_\text{h}-w_\text{d}\score_\text{d},
 \end{equation*}
-All weights are positive. The terms are: $\score_\mathrm{s}$, predicted bottom support fraction; $\score_\mathrm{f}$, unfilled area in the current construction layer beneath the footprint; $\score_\mathrm{b}$, proximity to the feasible placement boundary; $\score_\mathrm{h}$, mean height over predicted contact regions, min--max normalized across valid proposals for each object; and $\score_\mathrm{d}$, a bounded gap penalty between consecutive footprints (zero for the first placement).
-The area and boundary terms favor filling empty regions and building inward~\cite{menezes2021rocks}.
-
-We combine top-scoring proposals with sampling without replacement weighted by $\exp(\score/\tau)$, $\tau>0$.
-The initial height keeps the lowest candidate point above the base plane and all objects with overlapping padded XY bounding boxes (Fig.~\ref{fig:score_map}(c)).
+With positive weights, the score rewards predicted support fraction ($\score_\mathrm{s}$), unfilled layer area beneath the footprint ($\score_\mathrm{f}$), and boundary proximity ($\score_\mathrm{b}$), encouraging the stack to fill gaps and grow inward~\cite{menezes2021rocks}. It penalizes mean contact height ($\score_\mathrm{h}$) and the gap between consecutive footprints ($\score_\mathrm{d}$, zero for the first placement).
+We retain top-scoring proposals and sample additional ones with higher probability at higher scores. Each candidate starts above the ground and stones beneath its footprint (Fig.~\ref{fig:score_map}(c)).
 % Root proposals also use XY/yaw mutations. Displacement is measured from the
 % initial pose, and height filtering uses the current construction level.
 % Equilibrium rejection before simulation is defined in Reward Design.
@@ -111,8 +100,4 @@ For pose-optimization residual forces $\mathbf f_l$ and torques $\boldsymbol\tau
  +\frac{\|\boldsymbol\tau_l\|}{m_lg\vol(\object_l)^{1/3}}\right).
 \end{equation*}
 Candidates with $e(\action)\geq\epsilon_\mathrm{eq}$ are rejected before simulation.
-Disturbance sensitivity measures motion from settled poses $q_l'$ during force trials:
-\begin{equation*}
- D=\min\!\left\{D_{\max},\max_{j,l,t}d_{\SE(3)}\bigl(q_l^{(j)}(t),q_l'\bigr)\right\}.
-\end{equation*}
-Here $q_l^{(j)}(t)$ is the pose of object $l$ at time $t$ in trial $j$, including recovery; $d_{\SE(3)}$ sums translation distance and angular distance scaled by $\lambda_\theta>0$.
+Disturbance sensitivity $D$ is the maximum deviation from a settled pose across all stones and time steps in the disturbance trials, including recovery, capped at $D_{\max}$.
