@@ -62,7 +62,7 @@ We retain top-scoring proposals and sample additional ones with higher probabili
 % Equilibrium rejection before simulation is defined in Reward Design.
 
 \subsection{Simulation Module}\label{sec:simulation}
-The simulation module uses GPU-accelerated subADMM~\cite{ji2025gpu} to evaluate independent candidates in parallel.
+To predict how the stack moves after release or under disturbance, we use GPU-accelerated subADMM~\cite{ji2025gpu} to solve the nonlinear complementarity problem for frictional contact at each time step.
 Bilevel pose optimization can converge to a local minimum of the objective defined on the fitted geometry with smoothed friction constraints. Even with a small equilibrium residual, the optimized pose alone does not predict settling after release or recovery from a disturbance. Starting from that pose, we simulate the motion of the stack on the same fitted geometry to evaluate both responses.
 At every search depth, $\simul$ first simulates the candidate for a fixed time duration while holding existing objects fixed, then resets velocities and simulates the entire structure.
 Settling requires a minimum time duration and sustained low kinetic energy; excessive accumulated motion or timeout causes rejection.

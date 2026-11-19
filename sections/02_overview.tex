@@ -6,10 +6,10 @@ We decompose each stone mesh into convex components $\convex_{ij}$ and fit a dif
     \convex(q)=\{Rp+t\mid p\in\convex\},
     \qquad \object_i(q_i)=\bigcup_j\convex_{ij}(q_i).
 \end{equation*}
-The union can be nonconvex. The target $\target=\bigcup_j\target_j$ likewise consists of fixed convex components modeled by DSFs.
-At regular contacts, DSFs provide the pose derivatives of signed distances, contact points, and normals used in pose optimization~\cite{an2024riemannianmtd}.
+We note that the union of these convex components can be nonconvex. The target $\target=\bigcup_j\target_j$ likewise consists of fixed convex components modeled by DSFs.
+At regular contacts, DSFs provide the pose derivatives of signed distances, contact points, and normals used to refine the candidate pose~\cite{an2024riemannianmtd}.
 
-Pose optimization and simulation share a fitted geometry that can omit fine surface features. The larger features retained by the fit determine the modeled contact geometry and thus influence MCTS through the equilibrium residual and simulated disturbance response of each placement. 
+Bilevel pose optimization and simulation share a fitted geometry that can omit fine surface features. The larger features retained by the fit determine the modeled contact geometry and thus influence MCTS through the equilibrium residual and simulated disturbance response of each placement.
 In physical stacking experiments, we will test whether placements favored by these criteria remain stable under disturbances by comparing predicted and measured stone motion.
 
 % Queue the pose-optimization figure on page 3 after the overview introduction.
