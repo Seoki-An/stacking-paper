@@ -1,6 +1,7 @@
 \section{Differentiable Bilevel Pose Optimization} \label{sec:pose_optimization}
 
-Given an initial pose $\hat q_{k+1}$, we refine the candidate placement through bilevel optimization of its pose and contact forces across the structure.
+Starting from the sampled pose $\hat q_{k+1}$, we refine the candidate placement to improve geometric fit and reduce force and torque imbalances across the stack.
+Figure~\ref{fig:pose_optimization} illustrates how the lower-level contact force solution guides the upper-level pose update.
 
 \subsection{Single Object Pose Optimization Problem}
 

@@ -1,16 +1,16 @@
 \section{Preliminaries and Overview} \label{sec:overview}
 
 \subsection{Shape Representation}
-We represent the target shape $\target$ and each object $\object_i$ as unions of smooth convex bodies modeled by differentiable support functions (DSFs)~\cite{lee2023uncertain}.
-For a compact convex body $\convex\subset\real^3$, its support function is $\dsf_\convex(x)=\max_{p\in\convex}x^\top p$ for $x\ne0$.
-At pose $q=(R,t)\in\SE(3)$, we write
+We decompose each stone mesh into convex components $\convex_{ij}$ and fit a differentiable support function (DSF)~\cite{lee2023uncertain} to each. For a component $\convex$, $\dsf_\convex(u)=\max_{p\in\convex}u^\top p$. At pose $q=(R,t)\in\SE(3)$,
 \begin{equation*}
     \convex(q)=\{Rp+t\mid p\in\convex\},
-    \qquad \object_i(q_i)=\bigcup_j\convex_{ij}(q_i),
+    \qquad \object_i(q_i)=\bigcup_j\convex_{ij}(q_i).
 \end{equation*}
-where $\convex_{ij}$ are the convex components in the local frame of object $i$.
-Similarly, $\target=\bigcup_j\target_j$, where $\target_j$ are fixed convex components in the world frame.
-DSFs support differentiable signed-distance and contact-geometry computations between posed convex bodies~\cite{an2024riemannianmtd}, enabling gradient-based pose optimization.
+The union can be nonconvex. The target $\target=\bigcup_j\target_j$ likewise consists of fixed convex components modeled by DSFs.
+At regular contacts, DSFs provide the pose derivatives of signed distances, contact points, and normals used in pose optimization~\cite{an2024riemannianmtd}.
+
+Pose optimization and simulation share a fitted geometry that can omit fine surface features. The larger features retained by the fit determine the modeled contact geometry and thus influence MCTS through the equilibrium residual and simulated disturbance response of each placement. 
+In physical stacking experiments, we will test whether placements favored by these criteria remain stable under disturbances by comparing predicted and measured stone motion.
 
 % Queue the pose-optimization figure on page 3 after the overview introduction.
 
@@ -31,7 +31,7 @@ The MDP is $\mdp=(\mathcal{S},\mathcal{A},\transition,\reward,\gamma)$, with dis
 
 \subsection{MCTS-Based Stacking Framework}
 
-Our framework uses MCTS to search placement sequences, integrating pose sampling, bilevel refinement, and simulation within each expansion (Fig.~\ref{fig:overview}).
+Our framework uses MCTS to search placement sequences, integrating initial pose sampling, bilevel pose optimization, and simulation-based validation within each expansion (Fig.~\ref{fig:overview}).
 The search tree $\tree=(\nodes,\edges)$ is defined over the MDP.
 Each node $\node\in\nodes$ represents a state $\state(\node)$, and each edge $(\node,a)\in\edges$ represents an action and its transition to a child node.
 Let $\visit(\node)$ denote the number of completed evaluations and $Q(\node)$ the empirical mean of discounted returns backpropagated to that node.
@@ -50,4 +50,6 @@ The resulting flow is
 \state_{k+1},\ \reward(\state_k,\action_k)
 \end{equation*}
 Independent candidates follow this flow in parallel on the GPU, with bodywise ADMM also parallelizing contact force optimization within each structure (Sec.~\ref{sec:pose_optimization}).
-After search, we execute the selected placement and replan from the observed scene (Sec.~\ref{sec:sequence_planning}).
+After search, we execute only the selected root action. 
+Once the stack settles, we update the state with the observed stone poses and use that state as the root of a new search for the next action (Sec.~\ref{sec:sequence_planning}). 
+This limits the accumulation of pose prediction errors across physical placements.

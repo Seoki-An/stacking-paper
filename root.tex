@@ -137,13 +137,12 @@
 \maketitle
 
 \begin{abstract}
-Stacking irregularly shaped objects into a freestanding structure of a prescribed target shape is challenging because each placement changes both occupied space and contact force distribution throughout the structure, potentially affecting structural stability. Even a currently stable placement can restrict subsequent placements, limiting how closely the completed structure approximates the target shape.
-To address these challenges, we propose a GPU-accelerated Monte Carlo Tree Search (MCTS) framework that integrates placement refinement and simulation-based validation to plan stacking sequences.
-Its multi-stage node expansion samples candidate placements and refines them using a differentiable bilevel pose optimizer.
-The lower level optimizes contact forces across the entire structure, while the upper level uses differentiable support functions to compute pose gradients accounting for the target shape and the optimized force and torque equilibrium objective.
-Simulation then checks feasibility and evaluates the resulting structures to guide sequence search.
-To accelerate repeated candidate evaluations, we parallelize contact force optimization within each structure using bodywise ADMM, while batching pose optimization and simulation across independent candidates on the GPU.
-We present preliminary examples of equilibrium optimization across the entire structure and placement-sequence search, alongside a physical stacking demonstration.
+Stacking irregular objects into a freestanding structure is challenging because each placement changes the available space and redistributes contact forces throughout the stack. Even a stable placement can restrict later choices and leave parts of the target shape unfilled.
+To address these challenges, we propose a GPU-accelerated framework that combines differentiable bilevel pose optimization with Monte Carlo Tree Search (MCTS) over placement sequences.
+Each expansion samples a candidate placement and refines its pose. The lower level optimizes contact forces across the stack, and the upper level uses differentiable support functions to compute pose gradients that account for target geometry and structure-wide force and torque balance.
+Even when a placement passes the equilibrium check, stones may shift after release. GPU-accelerated subADMM simulation predicts where the stones settle and tests their response to disturbances. MCTS explores subsequent placements from the settled configuration.
+Bodywise ADMM parallelizes contact force optimization within each stack, while GPU batching evaluates independent candidates in parallel during pose optimization and simulation.
+Preliminary results illustrate structure-wide equilibrium optimization and sequence planning in simulation, alongside a physical stacking demonstration.
 \end{abstract}
 
 \IEEEpeerreviewmaketitle

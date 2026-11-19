@@ -6,8 +6,8 @@ Candidate placements are sampled, refined, and evaluated using the modules intro
 \subsection{Batched Search Procedure}\label{sec:mcts}
 
 \noindent \textbf{Batched Selection.}
-We select evaluated, feasible children for batched expansion.
-The colored paths in Fig.~\ref{fig:overview} terminate at the resulting expansion requests $b_j$.
+During selection, the search follows the PUCT rule below when descending through evaluated, feasible children.
+Each colored path in Fig.~\ref{fig:overview} ends at a node selected for expansion. The corresponding request $b_j$ asks the sampler to propose a new placement from the state at that node.
 For a child $\node$ reached by action $a$ from parent $\node_p$, we define the action prior over selectable child actions as
 \begin{equation*}
  P(\node_p,a)=\operatorname{softmax}_{a}\!\left(w_\object\rho_\object^{\mathrm{pre}}(a)-w_E e(a)\right),
@@ -28,8 +28,7 @@ They are cleared after backpropagation and do not increase the completed-visit c
 
 \noindent \textbf{Parallel Expansion and Evaluation.}
 Requests (colored rows in Fig.~\ref{fig:overview}) are evaluated in parallel through $\initpose\to\poseopt\to\simul$.
-Sampling chooses objects and initial poses; optimization refines the initial pose to improve target volume filling while minimizing static equilibrium residuals; simulation determines the settled successor state and reward.
-MCTS compares the resulting placement sequences, coupling continuous refinement to future placement opportunities.
+For each request, the sampler selects an object and an initial pose. Pose optimization refines that pose for target containment, height, clearance, and static equilibrium. For candidates that pass the equilibrium check, simulation predicts the settled successor state. The reward for a feasible transition accounts for the volume of the newly placed object inside the target at its settled pose (Sec.~\ref{sec:reward}).
 
 \noindent \textbf{Leaf Value Estimation and Backpropagation.}
 For nonterminal, feasible leaves, we replace rollouts with $\hat V(\node)=\hat r\sum_{j=0}^{\depth_{\node}-1}\gamma^j$, where $\depth_{\node}$ counts future placements in the estimate, capped by remaining search depth and inventory.
@@ -49,9 +48,10 @@ For each action $a$, we consider the deepest evaluated feasible paths from $\nod
  G(a)=\max_{(v_1,\ldots,v_m)}\sum_{t=1}^{m}\gamma^{t-1}r_{v_t},
 \end{equation*}
 where the maximum is over these paths, with $v_1=\node_a$.
-Only observed rewards are included in $G(a)$, excluding $\hat V$. If no feasible continuation exists, $m=1$ and $G(a)=r_{\node_a}$.
+The path return in $G(a)$ sums rewards from evaluated transitions and excludes the heuristic leaf estimate $\hat V$. If no feasible continuation exists, $m=1$ and $G(a)=r_{\node_a}$.
 
 We execute the selected placement, then replan with the observed successor state as the new root.
+Figure~\ref{fig:mcts_example} illustrates the effect of tree search in one wall construction example. From the same inventory, MCTS placed 19 stones, while the greedy planner found no feasible continuation after 14.
 
 \input{figures/mcts_example.tex}
 
@@ -73,14 +73,14 @@ The initial height keeps the lowest candidate point above the base plane and all
 % Equilibrium rejection before simulation is defined in Reward Design.
 
 \subsection{Simulation Module}\label{sec:simulation}
-Dynamic validation tests settling and disturbance response beyond static force balance.
+The simulation module uses GPU-accelerated subADMM~\cite{ji2025gpu} to evaluate independent candidates in parallel.
+Bilevel pose optimization can converge to a local minimum of the objective defined on the fitted geometry with smoothed friction constraints. Even with a small equilibrium residual, the optimized pose alone does not predict settling after release or recovery from a disturbance. Starting from that pose, we simulate the motion of the stack on the same fitted geometry to evaluate both responses.
 At every search depth, $\simul$ first simulates the candidate for a fixed time duration while holding existing objects fixed, then resets velocities and simulates the entire structure.
 Settling requires a minimum time duration and sustained low kinetic energy; excessive accumulated motion or timeout causes rejection.
 
 The settled scene defines $\state'=\transition(\state,\action)$.
 From rest in $\state'$, independent disturbance trials apply a force of magnitude $\alpha m_{i_{k+1}}g$ at the center of mass of the candidate for $\Delta t_f$, in $n_d$ evenly spaced horizontal directions ($\alpha>0$, gravitational acceleration $g$).
 With all objects dynamic, each trial must settle again without exceeding prescribed displacement limits relative to $\state'$; trials do not alter $\state'$.
-GPU-accelerated subADMM~\cite{ji2025gpu} evaluates independent candidates in parallel.
 
 % Delay the float to place Fig. 6 at the top of the right column.
 \input{figures/initial_pose_sampling.tex}
